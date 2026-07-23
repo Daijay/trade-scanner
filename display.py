@@ -30,6 +30,7 @@ def print_survivor_table(survivors: list[dict]) -> None:
     table.add_column("Score", justify="right")
     table.add_column("Alignment", justify="right")
     table.add_column("Close", justify="right")
+    table.add_column("Reason")
 
     for s in survivors:
         close = s["analysis"]["snapshots"]["daily"]["close"]
@@ -38,6 +39,7 @@ def print_survivor_table(survivors: list[dict]) -> None:
             f"{s['score']:.1f}",
             f"{s['analysis']['alignment']}/3",
             f"{close:.2f}",
+            s.get("reason", ""),
         )
 
     console.print(table)
