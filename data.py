@@ -1,9 +1,11 @@
 # data.py
 """Universe construction and batched multi-timeframe OHLCV fetching."""
 
+import io
 import logging
 
 import pandas as pd
+import requests
 import yfinance as yf
 
 import config
@@ -13,7 +15,10 @@ logger = logging.getLogger(__name__)
 
 def _wiki_tickers(url: str, table_index: int, symbol_col: str) -> list[str]:
     try:
-        tables = pd.read_html(url)
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()
+        tables = pd.read_html(io.StringIO(resp.text))
         col = tables[table_index][symbol_col]
         return [str(s).replace(".", "-").strip() for s in col.tolist()]
     except Exception as e:
