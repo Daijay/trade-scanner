@@ -34,7 +34,13 @@ def compute_indicators(df: pd.DataFrame) -> dict:
     bb_upper = bb.bollinger_hband()
     bb_lower = bb.bollinger_lband()
     atr = ta_lib.volatility.AverageTrueRange(high, low, close, window=14).average_true_range()
-    adx = ta_lib.trend.ADXIndicator(high, low, close, window=14).adx()
+    try:
+        adx_last = _last(ta_lib.trend.ADXIndicator(high, low, close, window=14).adx())
+    except (IndexError, ValueError):
+        # ta's ADXIndicator indexes into position `window` internally and raises
+        # IndexError when the dataframe has fewer than window+1 rows (short-history
+        # symbols). Treat as insufficient data, consistent with other indicators' NaN.
+        adx_last = float("nan")
 
     vol_avg20 = volume.rolling(20).mean()
     range_high_20d = high.rolling(20).max()
@@ -56,7 +62,7 @@ def compute_indicators(df: pd.DataFrame) -> dict:
         "bb_lower": _last(bb_lower),
         "atr14": last_atr,
         "atr_pct": (last_atr / last_close * 100.0) if last_close else float("nan"),
-        "adx14": _last(adx),
+        "adx14": adx_last,
         "vol_ratio": (last_vol / last_vol_avg) if last_vol_avg else float("nan"),
         "range_high_20d": _last(range_high_20d),
         "range_low_20d": _last(range_low_20d),
