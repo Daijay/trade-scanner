@@ -1,12 +1,18 @@
 """rich-based terminal scan animation. Auto-disabled under CI (GitHub Actions sets CI=true)."""
 
 import os
+import sys
 import time
 
 from rich.console import Console
 from rich.table import Table
 
 import config
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass  # not a reconfigurable stream (e.g. redirected/piped in some environments)
 
 console = Console()
 
