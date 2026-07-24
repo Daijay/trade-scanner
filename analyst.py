@@ -166,6 +166,14 @@ def _parse_response(text: str) -> list[dict] | None:
     return data
 
 
+def _extract_text(response) -> str | None:
+    """Concatenate text blocks from the response, skipping non-text blocks
+    (e.g. ThinkingBlock, which precedes the text block when extended
+    thinking is enabled)."""
+    parts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+    return "".join(parts) if parts else None
+
+
 def _call_claude(client, payloads: list[dict], strict: bool = False) -> str | None:
     prompt = _build_prompt(payloads, strict=strict)
     try:
@@ -174,7 +182,7 @@ def _call_claude(client, payloads: list[dict], strict: bool = False) -> str | No
             max_tokens=config.MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text
+        return _extract_text(response)
     except Exception as e:
         logger.warning("Claude API call failed: %r", e)
         return None

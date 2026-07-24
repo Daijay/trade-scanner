@@ -41,8 +41,12 @@ def _setup_json(ticker):
 
 
 class _FakeMessage:
-    def __init__(self, text):
-        self.content = [type("Block", (), {"text": text})()]
+    def __init__(self, text, thinking_block=False):
+        blocks = []
+        if thinking_block:
+            blocks.append(type("ThinkingBlock", (), {"type": "thinking", "thinking": "reasoning..."})())
+        blocks.append(type("TextBlock", (), {"type": "text", "text": text})())
+        self.content = blocks
 
 
 class _FakeMessages:
@@ -57,6 +61,9 @@ class _FakeMessages:
         resp = self._responses[min(self.call_count - 1, len(self._responses) - 1)]
         if isinstance(resp, Exception):
             raise resp
+        if isinstance(resp, tuple):
+            text, thinking_block = resp
+            return _FakeMessage(text, thinking_block=thinking_block)
         return _FakeMessage(resp)
 
 
@@ -84,6 +91,24 @@ def test_analyze_survivors_success_no_fences(monkeypatch):
     assert len(results) == 1
     assert results[0]["ticker"] == "AAPL"
     assert results[0]["bias"] == "long"
+    assert fake_client.messages.call_count == 1
+
+
+def test_analyze_survivors_skips_thinking_block(monkeypatch):
+    """Extended-thinking responses put a non-text ThinkingBlock before the
+    text block in response.content; the parser must find the text block
+    rather than assuming content[0] is text (regression: AttributeError
+    'ThinkingBlock' object has no attribute 'text')."""
+    survivors = [_survivor("AAPL")]
+    response_text = json.dumps([_setup_json("AAPL")])
+    fake_client = _FakeClient([(response_text, True)])
+    monkeypatch.setattr(analyst.anthropic, "Anthropic", lambda: fake_client)
+
+    now = datetime.datetime(2026, 7, 21, tzinfo=datetime.timezone.utc)
+    results = analyst.analyze_survivors(survivors, now)
+
+    assert len(results) == 1
+    assert results[0]["ticker"] == "AAPL"
     assert fake_client.messages.call_count == 1
 
 
