@@ -87,3 +87,25 @@ def test_run_filter_caps_at_max_survivors(monkeypatch):
     assert all(f["reason"] == "excess" for f in filtered_out)
     scores = [s["score"] for s in survivors]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_run_filter_records_include_bars_since_flip(monkeypatch):
+    import config
+    monkeypatch.setattr(config, "MIN_AVG_VOLUME", 1_000_000)
+    monkeypatch.setattr(config, "MIN_PRICE", 5.0)
+    monkeypatch.setattr(config, "MIN_ATR_PCT", 0.1)
+
+    universe_frames = {
+        "GOOD": _good_frames(),
+        "LOWVOL": {
+            "30m": _df(300, 100.0, 0.3, "1h", volume=1000),
+            "4h": _df(300, 100.0, 0.3, "1h", volume=1000),
+            "daily": _df(300, 100.0, 0.5, "1d", volume=1000),
+        },
+    }
+    survivors, filtered_out = run_filter(universe_frames)
+    for record in survivors + filtered_out:
+        assert "bars_since_flip" in record
+        assert "min_bars_since_flip" in record
+        assert set(record["bars_since_flip"].keys()) == {"30m", "4h", "daily"}
+        assert record["min_bars_since_flip"] == min(record["bars_since_flip"].values())

@@ -69,10 +69,18 @@ def run_filter(universe_frames: dict) -> tuple[list[dict], list[dict]]:
         analysis = analyze_symbol(frames)
         ok, reason = passes_hard_filter(symbol, frames, analysis)
         if not ok:
-            filtered_out.append({"symbol": symbol, "analysis": analysis, "score": 0.0, "reason": reason})
+            filtered_out.append({
+                "symbol": symbol, "analysis": analysis, "score": 0.0, "reason": reason,
+                "bars_since_flip": analysis["bars_since_flip"],
+                "min_bars_since_flip": analysis["min_bars_since_flip"],
+            })
             continue
         score = score_survivor(analysis)
-        candidates.append({"symbol": symbol, "analysis": analysis, "score": score, "reason": ""})
+        candidates.append({
+            "symbol": symbol, "analysis": analysis, "score": score, "reason": "",
+            "bars_since_flip": analysis["bars_since_flip"],
+            "min_bars_since_flip": analysis["min_bars_since_flip"],
+        })
 
     candidates.sort(key=lambda c: c["score"], reverse=True)
     survivors = candidates[: config.MAX_SURVIVORS]

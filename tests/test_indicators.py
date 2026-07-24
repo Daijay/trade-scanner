@@ -1,7 +1,7 @@
 # tests/test_indicators.py
 import numpy as np
 import pandas as pd
-from indicators import resample_to_4h, compute_indicators, classify_trend, analyze_symbol
+from indicators import resample_to_4h, compute_indicators, classify_trend, analyze_symbol, bars_since_flip
 
 
 def _make_trending_df(n=300, start=100.0, step=0.3, freq="1h"):
@@ -60,3 +60,29 @@ def test_analyze_symbol_full_alignment():
     assert set(result["trends"].keys()) == {"30m", "4h", "daily"}
     assert result["trends"]["daily"] == "bullish"
     assert result["alignment"] == 3
+    assert set(result["bars_since_flip"].keys()) == {"30m", "4h", "daily"}
+    assert all(isinstance(v, int) and 0 <= v <= 20 for v in result["bars_since_flip"].values())
+    assert result["min_bars_since_flip"] == min(result["bars_since_flip"].values())
+
+
+def test_bars_since_flip_long_stable_trend_returns_cap():
+    df = _make_trending_df(n=300, step=0.5, freq="1d")
+    assert bars_since_flip(df) == 20
+
+
+def test_bars_since_flip_recent_flip_returns_small_count():
+    # Long downtrend then a short recent uptrend tail.
+    idx = pd.date_range("2025-01-01", periods=300, freq="1d")
+    down_part = 200.0 - np.arange(285) * 0.5
+    up_part = down_part[-1] + np.arange(15) * 3.0
+    close = np.concatenate([down_part, up_part])
+    high = close + 0.5
+    low = close - 0.5
+    open_ = close - 0.1
+    volume = np.full(300, 2_000_000.0)
+    df = pd.DataFrame(
+        {"Open": open_, "High": high, "Low": low, "Close": close, "Volume": volume},
+        index=idx,
+    )
+    n = bars_since_flip(df)
+    assert 0 < n < 20

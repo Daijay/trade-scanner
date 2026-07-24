@@ -36,15 +36,19 @@ def print_survivor_table(survivors: list[dict]) -> None:
     table.add_column("Score", justify="right")
     table.add_column("Alignment", justify="right")
     table.add_column("Close", justify="right")
+    table.add_column("Fresh", justify="right")
     table.add_column("Reason")
 
     for s in survivors:
         close = s["analysis"]["snapshots"]["daily"]["close"]
+        fresh = s.get("min_bars_since_flip")
+        fresh_str = "" if fresh is None else (f"{fresh}+" if fresh == 20 else f"{fresh}")
         table.add_row(
             s["symbol"],
             f"{s['score']:.1f}",
             f"{s['analysis']['alignment']}/3",
             f"{close:.2f}",
+            fresh_str,
             s.get("reason", ""),
         )
 

@@ -84,10 +84,45 @@ def classify_trend(snapshot: dict) -> str:
     return "neutral"
 
 
+def _trend_label_series(df: pd.DataFrame) -> pd.Series:
+    """Full-history per-bar trend classification, same rule as classify_trend."""
+    close = df["Close"]
+
+    ema9 = ta_lib.trend.EMAIndicator(close, window=9).ema_indicator()
+    ema21 = ta_lib.trend.EMAIndicator(close, window=21).ema_indicator()
+    macd_hist = ta_lib.trend.MACD(close, window_slow=26, window_fast=12, window_sign=9).macd_diff()
+
+    bullish = (close > ema21) & (ema9 > ema21) & (macd_hist > 0)
+    bearish = (close < ema21) & (ema9 < ema21) & (macd_hist < 0)
+    valid = ema9.notna() & ema21.notna() & macd_hist.notna() & close.notna()
+
+    labels = pd.Series("neutral", index=df.index)
+    labels[valid & bullish] = "bullish"
+    labels[valid & bearish] = "bearish"
+    return labels
+
+
+def bars_since_flip(df: pd.DataFrame, max_lookback: int = 20) -> int:
+    """Count consecutive trailing bars sharing the last bar's classification, capped."""
+    if len(df) == 0:
+        return 0
+    labels = _trend_label_series(df)
+    last_label = labels.iloc[-1]
+    count = 0
+    for i in range(len(labels) - 1, -1, -1):
+        if labels.iloc[i] != last_label:
+            break
+        count += 1
+        if count >= max_lookback:
+            return max_lookback
+    return count
+
+
 def analyze_symbol(frames: dict) -> dict:
     """frames = {'30m': df, '4h': df, 'daily': df}. '4h' may be raw 1h; resample first if so."""
     snapshots = {}
     trends = {}
+    flips = {}
     for tf, df in frames.items():
         working = df
         if tf == "4h" and len(df) > 0:
@@ -98,6 +133,7 @@ def analyze_symbol(frames: dict) -> dict:
         snap = compute_indicators(working)
         snapshots[tf] = snap
         trends[tf] = classify_trend(snap)
+        flips[tf] = bars_since_flip(working)
 
     directions = [t for t in trends.values() if t != "neutral"]
     if directions and len(set(directions)) == 1:
@@ -105,4 +141,10 @@ def analyze_symbol(frames: dict) -> dict:
     else:
         alignment = 0
 
-    return {"snapshots": snapshots, "trends": trends, "alignment": alignment}
+    return {
+        "snapshots": snapshots,
+        "trends": trends,
+        "alignment": alignment,
+        "bars_since_flip": flips,
+        "min_bars_since_flip": min(flips.values()) if flips else 0,
+    }

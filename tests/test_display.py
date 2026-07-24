@@ -27,6 +27,10 @@ def test_flash_ticker_does_not_raise(monkeypatch):
 
 def test_print_survivor_table_does_not_raise():
     survivors = [
-        {"symbol": "NVDA", "score": 42.5, "analysis": {"alignment": 3, "snapshots": {"daily": {"close": 950.2}}}, "reason": ""},
+        {
+            "symbol": "NVDA", "score": 42.5,
+            "analysis": {"alignment": 3, "snapshots": {"daily": {"close": 950.2}}},
+            "reason": "", "min_bars_since_flip": 5,
+        },
     ]
     print_survivor_table(survivors)
