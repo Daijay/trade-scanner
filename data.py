@@ -13,28 +13,49 @@ import config
 logger = logging.getLogger(__name__)
 
 
-def _wiki_tickers(url: str, table_index: int, symbol_col: str) -> list[str]:
+def _scrape_tickers(url: str, table_index: int, symbol_col: str) -> list[str]:
+    """Fetch and parse a constituent ticker table. Fails loudly (RuntimeError)
+    on any network/parse problem rather than silently returning [] -- a broken
+    source must surface, not silently shrink the universe."""
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         resp = requests.get(url, headers=headers, timeout=15)
         resp.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"Failed to fetch tickers from {url}: {e!r}") from e
+
+    try:
         tables = pd.read_html(io.StringIO(resp.text))
-        col = tables[table_index][symbol_col]
-        return [str(s).replace(".", "-").strip() for s in col.tolist()]
     except Exception as e:
-        logger.warning("Failed to fetch tickers from %s: %r", url, e)
-        return []
+        raise RuntimeError(f"Failed to parse HTML tables from {url}: {e!r}") from e
+
+    if table_index >= len(tables):
+        raise RuntimeError(
+            f"Table index {table_index} out of range for {url} (found {len(tables)} tables)"
+        )
+
+    table = tables[table_index]
+    if symbol_col not in table.columns:
+        raise RuntimeError(
+            f"Column {symbol_col!r} not found in table {table_index} at {url} "
+            f"(columns: {list(table.columns)})"
+        )
+
+    tickers = [str(s).replace(".", "-").strip() for s in table[symbol_col].tolist()]
+    if not tickers:
+        raise RuntimeError(f"No tickers parsed from {url} (table {table_index}, column {symbol_col!r})")
+    return tickers
 
 
 def _sp500_tickers() -> list[str]:
-    return _wiki_tickers(
+    return _scrape_tickers(
         "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", 0, "Symbol"
     )
 
 
 def _nasdaq100_tickers() -> list[str]:
-    return _wiki_tickers(
-        "https://en.wikipedia.org/wiki/Nasdaq-100", 4, "Ticker"
+    return _scrape_tickers(
+        "https://www.slickcharts.com/nasdaq100", 0, "Symbol"
     )
 
 

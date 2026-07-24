@@ -1,6 +1,66 @@
 # tests/test_data.py
+import io
 import pandas as pd
-from data import build_universe, fetch_ohlcv, fetch_all_timeframes
+import pytest
+import requests
+from data import build_universe, fetch_ohlcv, fetch_all_timeframes, _scrape_tickers, _sp500_tickers, _nasdaq100_tickers
+
+
+class _FakeResp:
+    def __init__(self, text, status=200):
+        self.text = text
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.exceptions.HTTPError(f"status {self.status_code}")
+
+
+_SP500_HTML = """
+<table><tr><th>Symbol</th><th>Name</th></tr>
+<tr><td>AAPL</td><td>Apple</td></tr>
+<tr><td>BRK.B</td><td>Berkshire</td></tr>
+</table>
+"""
+
+_NASDAQ100_HTML = """
+<table><tr><th>#</th><th>Company</th><th>Symbol</th></tr>
+<tr><td>1</td><td>Apple</td><td>AAPL</td></tr>
+<tr><td>2</td><td>Class B Co</td><td>GOOG.L</td></tr>
+</table>
+"""
+
+
+def test_scrape_tickers_success_sp500_shape(monkeypatch):
+    monkeypatch.setattr(requests, "get", lambda *a, **k: _FakeResp(_SP500_HTML))
+    result = _scrape_tickers("https://example.com/sp500", 0, "Symbol")
+    assert result == ["AAPL", "BRK-B"]
+
+
+def test_scrape_tickers_success_nasdaq100_shape(monkeypatch):
+    monkeypatch.setattr(requests, "get", lambda *a, **k: _FakeResp(_NASDAQ100_HTML))
+    result = _scrape_tickers("https://example.com/nasdaq100", 0, "Symbol")
+    assert result == ["AAPL", "GOOG-L"]
+
+
+def test_scrape_tickers_raises_on_network_error(monkeypatch):
+    def _raise(*a, **k):
+        raise requests.exceptions.ConnectionError("boom")
+    monkeypatch.setattr(requests, "get", _raise)
+    with pytest.raises(RuntimeError):
+        _scrape_tickers("https://example.com/broken", 0, "Symbol")
+
+
+def test_scrape_tickers_raises_on_missing_column(monkeypatch):
+    monkeypatch.setattr(requests, "get", lambda *a, **k: _FakeResp(_SP500_HTML))
+    with pytest.raises(RuntimeError):
+        _scrape_tickers("https://example.com/sp500", 0, "Ticker")  # wrong column name
+
+
+def test_scrape_tickers_raises_on_table_index_out_of_range(monkeypatch):
+    monkeypatch.setattr(requests, "get", lambda *a, **k: _FakeResp(_SP500_HTML))
+    with pytest.raises(RuntimeError):
+        _scrape_tickers("https://example.com/sp500", 5, "Symbol")
 
 def test_build_universe_dedupes_and_caps(monkeypatch):
     import config

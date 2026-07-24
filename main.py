@@ -21,17 +21,16 @@ def is_weekday(now: datetime.datetime) -> bool:
 
 
 def market_open_today(now: datetime.datetime) -> bool:
-    """Fail-open: a network/data error assumes the market is open rather than silently skipping."""
-    try:
-        spy = data.fetch_ohlcv(["SPY"], "daily")
-        if "SPY" not in spy or spy["SPY"].empty:
-            logger.warning("Could not fetch SPY to confirm market is open; assuming open.")
-            return True
-        last_bar_date = spy["SPY"].index[-1].date()
-        return last_bar_date == now.date()
-    except Exception as e:
-        logger.warning("market_open_today check failed (%r); assuming open.", e)
-        return True
+    """Calendar-based guard: checks `now`'s date against config.MARKET_HOLIDAYS,
+    a maintained list of full-day NYSE closures. No network call.
+
+    Limitation: this only knows about scheduled holidays published in advance.
+    It does not detect unscheduled emergency closures (e.g. a 9/11-style
+    event) since those aren't in the list -- an accepted, explicitly-noted
+    gap for Phase 1, not a regression (the prior bar-presence check couldn't
+    reliably detect those either, and additionally false-negatived on every
+    ordinary pre-market scan)."""
+    return now.date().isoformat() not in config.MARKET_HOLIDAYS
 
 
 def run_scan(dry_run: bool = False) -> list[dict]:

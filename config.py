@@ -56,3 +56,17 @@ SCAN_TIMES_PT = {
     "preclose": datetime.time(12, 30),
 }
 SCAN_TOLERANCE_MINUTES = 20
+
+# Full-day NYSE closures. Must be updated yearly (see nyse.com holiday calendar).
+MARKET_HOLIDAYS = [
+    "2026-01-01",  # New Year's Day
+    "2026-01-19",  # MLK Day
+    "2026-02-16",  # Washington's Birthday
+    "2026-04-03",  # Good Friday
+    "2026-05-25",  # Memorial Day
+    "2026-06-19",  # Juneteenth
+    "2026-07-03",  # Independence Day (observed, Jul 4 falls on Saturday)
+    "2026-09-07",  # Labor Day
+    "2026-11-26",  # Thanksgiving
+    "2026-12-25",  # Christmas
+]
