@@ -29,6 +29,11 @@ MAX_ALERTS = 8
 MIN_CONVICTION = 6              # out of 10
 MIN_RR = 1.5
 
+# -- News -------------------------------------------------------------------
+NEWS_WINDOW_HOURS = 24           # lookback for headlines
+NEWS_WINDOW_HOURS_MONDAY = 48    # wider lookback Monday to cover the weekend gap
+NEWS_HEADLINE_CAP = 5            # max headlines kept (per symbol / market feed)
+
 # -- Claude ----------------------------------------------------------------
 MODEL = "claude-sonnet-5"                  # verify current string in console
 MODEL_CHEAP = "claude-haiku-4-5-20251001"  # fallback if cost climbs
