@@ -7,10 +7,12 @@ import sys
 
 import pytz
 
+import analyst
 import config
 import data
 import display
 import filter as filter_mod
+import news
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,7 +35,7 @@ def market_open_today(now: datetime.datetime) -> bool:
     return now.date().isoformat() not in config.MARKET_HOLIDAYS
 
 
-def run_scan(dry_run: bool = False) -> list[dict]:
+def run_scan(dry_run: bool = False, limit: int | None = None) -> list[dict]:
     tz = pytz.timezone(config.MARKET_TZ)
     now = datetime.datetime.now(tz)
 
@@ -66,15 +68,39 @@ def run_scan(dry_run: bool = False) -> list[dict]:
         "Scanned %d -> data OK %d -> survivors %d",
         len(universe), len(universe_frames), len(survivors),
     )
+
+    if limit is not None:
+        survivors = survivors[:limit]
+
+    if not survivors:
+        logger.info("No survivors; skipping news + analyst.")
+        return survivors
+
+    survivors = news.attach_news(survivors, now)
+    setups = analyst.analyze_survivors(survivors, now)
+
+    logger.info("Analyst returned %d setup(s) from %d survivor(s).", len(setups), len(survivors))
+    for setup in setups:
+        logger.info(
+            "%s: bias=%s conviction=%s entry=%s stop=%s target=%s rr=%s horizon=%s",
+            setup.get("ticker"), setup.get("bias"), setup.get("conviction"),
+            setup.get("entry"), setup.get("stop"), setup.get("target"),
+            setup.get("rr"), setup.get("horizon"),
+        )
+
     return survivors
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Trade scanner Phase 1 pipeline")
     parser.add_argument("--dry-run", action="store_true", help="Skip weekday/market-open guards")
+    parser.add_argument(
+        "--limit", type=int, default=None,
+        help="Truncate survivors to the first N before calling news/analyst (manual cost-controlled testing)",
+    )
     args = parser.parse_args()
 
-    run_scan(dry_run=args.dry_run)
+    run_scan(dry_run=args.dry_run, limit=args.limit)
     return 0
 
 

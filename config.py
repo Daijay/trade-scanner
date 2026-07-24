@@ -39,6 +39,11 @@ MODEL = "claude-sonnet-5"                  # verify current string in console
 MODEL_CHEAP = "claude-haiku-4-5-20251001"  # fallback if cost climbs
 BATCH_SIZE = 10                  # symbols per API call
 MAX_TOKENS = 4000
+ANALYST_MAX_RETRIES = 1          # retries per batch on unparseable response
+HORIZON_BY_ALIGNMENT = {         # alignment score -> trade horizon (computed in code, never asked of Claude)
+    3: "swing",
+    2: "intraday",
+}
 
 # -- Journal ----------------------------------------------------------------
 SCRATCH_AFTER_BARS = 12         # bars open with no hit -> scratch
