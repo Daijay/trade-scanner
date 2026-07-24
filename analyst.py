@@ -180,6 +180,7 @@ def _call_claude(client, payloads: list[dict], strict: bool = False) -> str | No
         response = client.messages.create(
             model=config.MODEL,
             max_tokens=config.MAX_TOKENS,
+            thinking={"type": "disabled"},
             messages=[{"role": "user", "content": prompt}],
         )
         return _extract_text(response)

@@ -60,9 +60,11 @@ MARKET_TZ = "America/Vancouver"
 MARKET_OPEN = datetime.time(6, 30)
 MARKET_CLOSE = datetime.time(13, 0)
 # (scan label -> nominal PT time)
+# 2 scans/day, weekdays only (cost-driven; dropped the 10:30 AM midsession scan --
+# see PLAN.md SS3 and SS15). Intraday setups that form and resolve between 6:00 AM
+# and 12:30 PM are not caught unless still valid at the 12:30 PM scan.
 SCAN_TIMES_PT = {
     "premarket": datetime.time(6, 0),
-    "midsession": datetime.time(10, 30),
     "preclose": datetime.time(12, 30),
 }
 SCAN_TOLERANCE_MINUTES = 20

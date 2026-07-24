@@ -97,13 +97,17 @@ capped at 30 hard.
 
 ## 3. Schedule
 
-Three scans, weekdays only. Market hours in Vancouver (PT): open 6:30 AM, close 1:00 PM.
+Two scans, weekdays only (cost-driven — see §15). Market hours in Vancouver (PT):
+open 6:30 AM, close 1:00 PM.
 
 | Scan | PT | Purpose |
 |---|---|---|
 | Pre-market | 6:00 AM | Overnight gaps, gap-and-go setups, sets the day's bias |
-| Mid-session | 10:30 AM | Intraday setups formed after the open |
 | Pre-close | 12:30 PM | Late momentum, positions to carry overnight |
+
+**Dropped coverage:** the former 10:30 AM mid-session scan is gone. Intraday setups
+that form and resolve entirely between 6:00 AM and 12:30 PM will not be caught unless
+they are still valid at the 12:30 PM scan.
 
 ### DST problem — handle explicitly
 
@@ -119,8 +123,6 @@ on:
   schedule:
     # 6:00 AM PT  → 13:00 UTC (PDT) / 14:00 UTC (PST)
     - cron: '0 13,14 * * 1-5'
-    # 10:30 AM PT → 17:30 UTC (PDT) / 18:30 UTC (PST)
-    - cron: '30 17,18 * * 1-5'
     # 12:30 PM PT → 19:30 UTC (PDT) / 20:30 UTC (PST)
     - cron: '30 19,20 * * 1-5'
   workflow_dispatch:        # manual trigger for testing
@@ -526,16 +528,30 @@ loops an API call.
 
 ## 15. Cost
 
-| Item | Estimate |
-|---|---|
-| Per scan | ~$0.01-0.03 |
-| Per weekday (3 scans) | ~$0.03-0.09 |
-| Per month (~22 weekdays) | ~$0.70-2.00 |
-| Weekly stats review call | negligible |
+Real numbers from a live `--limit 10` API call (one full batch at the real
+`BATCH_SIZE=10`, extended thinking disabled): `input_tokens=9814`,
+`output_tokens=2151`, `thinking_tokens=0`. JSON output was complete and valid
+(10/10 setups parsed, no retries). This replaces the earlier thinking-inflated
+estimate below.
+
+Claude Sonnet 5 pricing: $2.00/$10.00 per MTok (introductory, through
+2026-08-31), reverting to $3.00/$15.00 per MTok standard afterward.
+
+| Item | Intro pricing (through 2026-08-31) | Standard pricing (after) |
+|---|---|---|
+| Per batch of 10 (measured) | ~$0.041 | ~$0.062 |
+| Per scan (3 batches of 10, MAX_SURVIVORS=30) | ~$0.12 | ~$0.19 |
+| Per month (2 scans/day, ~22 weekdays -> ~44 scans) | ~$5.43 | ~$8.15 |
+| Weekly stats review call | negligible | negligible |
 
 Well under the configured monthly cap. Costs scale with **survivor count**, not universe
 size — raising `MAX_SURVIVORS` from 30 to 100 roughly triples spend; going from 400 to
 600 symbols changes nothing.
+
+Schedule dropped from 3 scans/day to 2 (see §3) specifically to cut this monthly
+figure — the 10:30 AM scan was the same per-call cost as the other two for one
+extra scan/day, ~50% of total monthly spend for coverage that mostly overlapped
+with setups still valid at 12:30 PM.
 
 ---
 
