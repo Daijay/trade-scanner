@@ -1,0 +1,43 @@
+name: Trade Scan
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 6:00 AM PT premarket -> 13:00 UTC (PDT) / 14:00 UTC (PST)
+    - cron: '0 13,14 * * 1-5'
+    # 12:30 PM PT preclose -> 19:30 UTC (PDT) / 20:30 UTC (PST)
+    - cron: '30 19,20 * * 1-5'
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      EMAIL_ADDRESS: ${{ secrets.EMAIL_ADDRESS }}
+      EMAIL_APP_PASSWORD: ${{ secrets.EMAIL_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scan
+        run: python main.py
+
+      - name: Commit updated journal.json
+        run: |
+          git config user.name "trade-scanner-bot"
+          git config user.email "actions@github.com"
+          git add -f journal.json
+          git diff --cached --quiet || git commit -m "Update journal.json [skip ci]"
+          git push
