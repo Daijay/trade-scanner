@@ -333,6 +333,76 @@ def test_save_then_load_round_trips(tmp_path):
     assert result == alerts
 
 
-def test_summarize_stats_stub_raises():
-    with pytest.raises(NotImplementedError):
-        journal.summarize_stats({})
+class _FakeMessage:
+    def __init__(self, text):
+        self.content = [type("TextBlock", (), {"type": "text", "text": text})()]
+
+
+class _FakeMessages:
+    def __init__(self, text):
+        self._text = text
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return _FakeMessage(self._text)
+
+
+class _FakeClient:
+    def __init__(self, text):
+        self.messages = _FakeMessages(text)
+
+
+def _sample_stats():
+    return {
+        "hit_rate": 0.6, "adj_hit_rate": 0.55, "scratch_rate": 0.2, "avg_rr": 0.8,
+        "wins": 12, "losses": 8, "scratches": 5, "total_resolved": 25,
+        "breakdowns": {
+            "by_conviction": {6: journal._empty_rate_block(), 7: journal._empty_rate_block(),
+                              8: journal._empty_rate_block(), 9: journal._empty_rate_block(),
+                              10: journal._empty_rate_block()},
+            "by_scan": {"premarket": journal._empty_rate_block(), "preclose": journal._empty_rate_block()},
+            "by_direction": {"long": journal._empty_rate_block(), "short": journal._empty_rate_block()},
+            "by_horizon": {"intraday": journal._empty_rate_block(), "swing": journal._empty_rate_block()},
+        },
+    }
+
+
+def test_summarize_stats_returns_claude_text(monkeypatch):
+    fake_client = _FakeClient("Hit rate is trending up on swing setups; scratch rate is elevated on intraday longs.")
+    monkeypatch.setattr(journal.anthropic, "Anthropic", lambda: fake_client)
+    result = journal.summarize_stats(_sample_stats())
+    assert result == "Hit rate is trending up on swing setups; scratch rate is elevated on intraday longs."
+
+
+def test_summarize_stats_disables_thinking(monkeypatch):
+    fake_client = _FakeClient("summary text")
+    monkeypatch.setattr(journal.anthropic, "Anthropic", lambda: fake_client)
+    journal.summarize_stats(_sample_stats())
+    kwargs = fake_client.messages.calls[0]
+    assert kwargs["thinking"] == {"type": "disabled"}
+    assert kwargs["model"] == config.MODEL
+
+
+def test_summarize_stats_prompt_includes_stats_json(monkeypatch):
+    fake_client = _FakeClient("summary text")
+    monkeypatch.setattr(journal.anthropic, "Anthropic", lambda: fake_client)
+    stats = _sample_stats()
+    journal.summarize_stats(stats)
+    kwargs = fake_client.messages.calls[0]
+    prompt = kwargs["messages"][0]["content"]
+    assert '"hit_rate": 0.6' in prompt
+    assert "probability" in prompt.lower() or "certain" in prompt.lower()
+
+
+def test_summarize_stats_api_failure_returns_none(monkeypatch):
+    class _RaisingMessages:
+        def create(self, **kwargs):
+            raise RuntimeError("network down")
+
+    class _RaisingClient:
+        def __init__(self):
+            self.messages = _RaisingMessages()
+
+    monkeypatch.setattr(journal.anthropic, "Anthropic", lambda: _RaisingClient())
+    assert journal.summarize_stats(_sample_stats()) is None

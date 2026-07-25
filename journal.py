@@ -13,6 +13,12 @@ import logging
 
 import config
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import anthropic  # noqa: E402  (import after load_dotenv so ANTHROPIC_API_KEY is set)
+
 logger = logging.getLogger(__name__)
 
 _CONVICTION_BUCKETS = [6, 7, 8, 9, 10]
@@ -219,13 +225,39 @@ def should_compute_stats(alerts: list[dict]) -> bool:
     return closed_count > 0 and closed_count % config.STATS_EVERY == 0
 
 
-def summarize_stats(stats: dict) -> str:
-    """Phase 4 stub: intended to send the compute_stats() dict to Claude and
-    return a short plain-English review of what's working / not working and
-    what a human might consider changing in config.py. Never edits config
-    itself -- read-only commentary. Not wired this session (see analyst.py
-    for the anthropic.Anthropic() + load_dotenv call pattern to copy)."""
-    raise NotImplementedError("Phase 4")
+def summarize_stats(stats: dict) -> str | None:
+    """Sends the compute_stats() dict to Claude and returns a short
+    plain-English paragraph: what's working, what isn't, what a human might
+    consider changing in config.py. Read-only commentary -- never edits
+    config.py itself. Returns None on any API failure; caller (main.py)
+    must treat that as "no summary this scan," not a crash."""
+    prompt = (
+        "You are reviewing paper-trading performance stats for an equity/futures "
+        "swing/intraday alert system. Below is a JSON stats block: overall "
+        "hit_rate, adj_hit_rate (scratches counted as half), scratch_rate, avg_rr, "
+        "and breakdowns by conviction level, scan time, direction, and horizon.\n\n"
+        f"{json.dumps(stats, indent=2)}\n\n"
+        "Write a short plain-English paragraph (3-5 sentences, no markdown, no "
+        "JSON) covering: what's working, what isn't, and what a human might "
+        "consider changing in config.py. Do not edit or propose exact config "
+        "values -- describe the pattern, not the fix. This is a relative "
+        "performance summary, not a probability or certainty claim: never use "
+        "words like guaranteed, certain, will definitely, or can't lose."
+    )
+    client = anthropic.Anthropic()
+    try:
+        response = client.messages.create(
+            model=config.MODEL,
+            max_tokens=500,
+            thinking={"type": "disabled"},
+            messages=[{"role": "user", "content": prompt}],
+        )
+        parts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
+        text = "".join(parts) if parts else None
+        return text.strip() if text else None
+    except Exception as e:
+        logger.warning("summarize_stats Claude call failed: %r", e)
+        return None
 
 
 def load_journal(path: str = "journal.json") -> list[dict]:
