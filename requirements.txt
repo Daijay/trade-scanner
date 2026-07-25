@@ -9,7 +9,8 @@ beautifulsoup4
 feedparser
 python-telegram-bot
 pytz
-colorama
 rich
 vaderSentiment
 python-dotenv
+ta
+stockstats
