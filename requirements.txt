@@ -1,8 +1,6 @@
 yfinance
 pandas
 numpy
-scipy
-scikit-learn
 anthropic
 requests
 beautifulsoup4
