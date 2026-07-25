@@ -10,8 +10,10 @@ import pytz
 import analyst
 import config
 import data
+import digest
 import display
 import filter as filter_mod
+import journal
 import news
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -35,17 +37,78 @@ def market_open_today(now: datetime.datetime) -> bool:
     return now.date().isoformat() not in config.MARKET_HOLIDAYS
 
 
-def run_scan(dry_run: bool = False, limit: int | None = None) -> list[dict]:
+def previous_scan_time(scan: str, now: datetime.datetime) -> datetime.datetime:
+    """Returns the nominal datetime of the scan immediately prior to `scan`
+    at `now`, per config.SCAN_TIMES_PT. premarket's previous scan is
+    preclose on the last prior weekday; preclose's previous scan is
+    premarket earlier the same day."""
+    tz = now.tzinfo
+    if scan == "preclose":
+        t = config.SCAN_TIMES_PT["premarket"]
+        return now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+
+    # scan == "premarket": walk back to the previous weekday's preclose.
+    day = now
+    while True:
+        day = day - datetime.timedelta(days=1)
+        if day.weekday() < 5:
+            break
+    t = config.SCAN_TIMES_PT["preclose"]
+    return day.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0, tzinfo=tz)
+
+
+def resolve_previous_alerts(now: datetime.datetime, scan: str) -> list[dict]:
+    """Loads the journal, resolves every status=="open" alert using 30m bars
+    strictly after the previous scan's nominal time, saves the updated
+    journal, and returns the full alert list (open + closed)."""
+    alerts = journal.load_journal()
+    open_tickers = sorted({a["ticker"] for a in alerts if a["status"] == "open"})
+
+    if not open_tickers:
+        return alerts
+
+    cutoff = previous_scan_time(scan, now)
+    raw_bars = data.fetch_ohlcv(open_tickers, "30m")
+    bars_by_ticker = {
+        ticker: df[df.index > cutoff]
+        for ticker, df in raw_bars.items()
+    }
+
+    journal.resolve_open_alerts(alerts, bars_by_ticker)
+    journal.save_journal(alerts)
+    return alerts
+
+
+def _current_scan_label(now: datetime.datetime) -> str:
+    """Picks whichever configured scan time is closest to `now` (used for
+    labeling the journal entry / digest header; the actual +-tolerance guard
+    against firing at the wrong time is out of scope for this task)."""
+    best = min(
+        config.SCAN_TIMES_PT.items(),
+        key=lambda kv: abs(
+            (now.hour * 60 + now.minute) - (kv[1].hour * 60 + kv[1].minute)
+        ),
+    )
+    return best[0]
+
+
+def run_scan(dry_run: bool = False, limit: int | None = None) -> dict:
     tz = pytz.timezone(config.MARKET_TZ)
     now = datetime.datetime.now(tz)
 
     if not dry_run:
         if not is_weekday(now):
             logger.info("Not a weekday (%s); exiting.", now.date())
-            return []
+            return {"setups": [], "digest": None}
         if not market_open_today(now):
             logger.info("Market not open today (%s); exiting.", now.date())
-            return []
+            return {"setups": [], "digest": None}
+
+    scan = _current_scan_label(now)
+
+    logger.info("Resolving outcomes of previously open alerts...")
+    alerts = resolve_previous_alerts(now, scan)
+    just_resolved = [a for a in alerts if a["status"] == "closed" and a.get("resolved_at")]
 
     logger.info("Building universe...")
     universe = data.build_universe()
@@ -64,6 +127,7 @@ def run_scan(dry_run: bool = False, limit: int | None = None) -> list[dict]:
             display.flash_ticker(entry["symbol"], False, entry["reason"], entry["analysis"]["alignment"])
 
     display.print_survivor_table(survivors)
+    scan_counts = {"scanned": len(universe), "filtered": len(survivors), "alerts": 0}
     logger.info(
         "Scanned %d -> data OK %d -> survivors %d",
         len(universe), len(universe_frames), len(survivors),
@@ -72,27 +136,51 @@ def run_scan(dry_run: bool = False, limit: int | None = None) -> list[dict]:
     if limit is not None:
         survivors = survivors[:limit]
 
-    if not survivors:
-        logger.info("No survivors; skipping news + analyst.")
-        return survivors
+    setups: list[dict] = []
+    if survivors:
+        survivors = news.attach_news(survivors, now)
+        setups = analyst.analyze_survivors(survivors, now)
+        logger.info("Analyst returned %d setup(s) from %d survivor(s).", len(setups), len(survivors))
 
-    survivors = news.attach_news(survivors, now)
-    setups = analyst.analyze_survivors(survivors, now)
+    journal.log_alerts(setups, scan, now)
 
-    logger.info("Analyst returned %d setup(s) from %d survivor(s).", len(setups), len(survivors))
-    for setup in setups:
-        logger.info(
-            "%s: bias=%s conviction=%s entry=%s stop=%s target=%s rr=%s horizon=%s",
-            setup.get("ticker"), setup.get("bias"), setup.get("conviction"),
-            setup.get("entry"), setup.get("stop"), setup.get("target"),
-            setup.get("rr"), setup.get("horizon"),
-        )
+    alertable = [s for s in setups if s.get("conviction", 0) >= config.MIN_CONVICTION]
+    alertable.sort(key=lambda s: s.get("conviction", 0), reverse=True)
+    alertable = alertable[: config.MAX_ALERTS]
+    scan_counts["alerts"] = len(alertable)
 
-    return survivors
+    alerts = journal.load_journal()
+    stats = journal.compute_stats(alerts)
+    closed_count = sum(1 for a in alerts if a["status"] == "closed")
+    session_number = min(closed_count, config.MIN_PAPER_SESSIONS) if closed_count else 0
+
+    stats["session"] = {
+        "wins": sum(1 for a in just_resolved if a["outcome"] == "win"),
+        "losses": sum(1 for a in just_resolved if a["outcome"] in ("loss", "ambiguous")),
+        "scratches": sum(1 for a in just_resolved if a["outcome"] == "scratch"),
+        "when": "this scan",
+        "session_number": session_number,
+    }
+
+    summary_text = None
+    if journal.should_compute_stats(alerts):
+        logger.info("Stats crossed a %d-resolved-alert boundary; requesting summary...", config.STATS_EVERY)
+        summary_text = journal.summarize_stats(stats)
+
+    if alertable:
+        message = digest.build_digest(scan, now, alertable, scan_counts, stats)
+    else:
+        reason = "No setups. No survivors reached the alert threshold this scan."
+        message = digest.build_no_setup_digest(scan, now, scan_counts, reason, stats, session_number)
+
+    if summary_text:
+        message = f"{message}\n\n{summary_text}"
+
+    return {"setups": alertable, "digest": message, "scan": scan, "now": now}
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Trade scanner Phase 1 pipeline")
+    parser = argparse.ArgumentParser(description="Trade scanner pipeline")
     parser.add_argument("--dry-run", action="store_true", help="Skip weekday/market-open guards")
     parser.add_argument(
         "--limit", type=int, default=None,
@@ -100,7 +188,10 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    run_scan(dry_run=args.dry_run, limit=args.limit)
+    result = run_scan(dry_run=args.dry_run, limit=args.limit)
+    if result.get("digest"):
+        import notify
+        notify.send_digest(result["digest"])
     return 0
 
 

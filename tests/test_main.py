@@ -1,6 +1,8 @@
 import datetime
 import pytz
 import config
+import main
+import journal
 from main import is_weekday, market_open_today
 
 
@@ -35,3 +37,68 @@ def test_market_open_today_true_midsession(monkeypatch):
     tz = pytz.timezone("America/Vancouver")
     dt = tz.localize(datetime.datetime(2026, 7, 22, 10, 30))
     assert market_open_today(dt) is True
+
+
+def test_previous_scan_time_preclose_same_day():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 12, 30))  # Wednesday preclose
+    prev = main.previous_scan_time("preclose", now)
+    expected = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))
+    assert prev == expected
+
+
+def test_previous_scan_time_premarket_rolls_back_to_prior_weekday():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))  # Wednesday premarket
+    prev = main.previous_scan_time("premarket", now)
+    expected = tz.localize(datetime.datetime(2026, 7, 21, 12, 30))  # Tuesday preclose
+    assert prev == expected
+
+
+def test_previous_scan_time_monday_premarket_rolls_back_to_friday():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 20, 6, 0))  # Monday premarket
+    prev = main.previous_scan_time("premarket", now)
+    expected = tz.localize(datetime.datetime(2026, 7, 17, 12, 30))  # Friday preclose
+    assert prev == expected
+
+
+def test_resolve_previous_alerts_no_open_alerts_no_fetch(monkeypatch, tmp_path):
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": [])
+    saved = {}
+    monkeypatch.setattr(journal, "save_journal", lambda alerts, path="journal.json": saved.update(alerts=alerts))
+
+    def _fail_fetch(*a, **k):
+        raise AssertionError("should not fetch when there are no open alerts")
+
+    monkeypatch.setattr(main.data, "fetch_ohlcv", _fail_fetch)
+
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))
+    result = main.resolve_previous_alerts(now, scan="premarket")
+    assert result == []
+
+
+def test_resolve_previous_alerts_fetches_only_open_tickers(monkeypatch):
+    alerts = [
+        {"id": "a1", "ticker": "NVDA", "status": "open", "bias": "long",
+         "entry": 100.0, "stop": 95.0, "target": 110.0, "bars_open": 0, "position": None},
+        {"id": "a2", "ticker": "TSLA", "status": "closed", "outcome": "win"},
+    ]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": alerts)
+    monkeypatch.setattr(journal, "save_journal", lambda a, path="journal.json": None)
+
+    fetched = {}
+
+    def _fake_fetch(symbols, timeframe):
+        fetched["symbols"] = symbols
+        fetched["timeframe"] = timeframe
+        return {}
+
+    monkeypatch.setattr(main.data, "fetch_ohlcv", _fake_fetch)
+
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))
+    main.resolve_previous_alerts(now, scan="premarket")
+    assert fetched["symbols"] == ["NVDA"]
+    assert fetched["timeframe"] == "30m"
