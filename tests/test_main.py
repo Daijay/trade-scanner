@@ -102,3 +102,47 @@ def test_resolve_previous_alerts_fetches_only_open_tickers(monkeypatch):
     main.resolve_previous_alerts(now, scan="premarket")
     assert fetched["symbols"] == ["NVDA"]
     assert fetched["timeframe"] == "30m"
+
+
+def test_within_scan_tolerance_true_at_exact_scan_time():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))
+    assert main.within_scan_tolerance(now) is True
+
+
+def test_within_scan_tolerance_true_within_window():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 15))  # 15 min after premarket
+    assert main.within_scan_tolerance(now) is True
+
+
+def test_within_scan_tolerance_false_outside_window():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 9, 0))  # between the two scan times
+    assert main.within_scan_tolerance(now) is False
+
+
+def test_within_scan_tolerance_true_for_preclose():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 12, 25))  # 5 min before preclose
+    assert main.within_scan_tolerance(now) is True
+
+
+def test_run_scan_exits_when_outside_tolerance(monkeypatch):
+    tz = pytz.timezone("America/Vancouver")
+    off_hours = tz.localize(datetime.datetime(2026, 7, 22, 9, 0))  # a Wednesday, off-hours
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return off_hours
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    def _fail(*a, **k):
+        raise AssertionError("should not reach universe build when outside scan tolerance")
+
+    monkeypatch.setattr(main.data, "build_universe", _fail)
+
+    result = main.run_scan(dry_run=False)
+    assert result == {"setups": [], "digest": None}

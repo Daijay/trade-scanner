@@ -37,6 +37,19 @@ def market_open_today(now: datetime.datetime) -> bool:
     return now.date().isoformat() not in config.MARKET_HOLIDAYS
 
 
+def within_scan_tolerance(now: datetime.datetime) -> bool:
+    """True if `now` is within config.SCAN_TOLERANCE_MINUTES minutes of any
+    configured scan time in config.SCAN_TIMES_PT. GitHub Actions cron fires
+    at both UTC offsets to cover DST, so this catches the "wrong" offset
+    firing outside the real scheduled window."""
+    for t in config.SCAN_TIMES_PT.values():
+        target = now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+        diff_minutes = abs((now - target).total_seconds()) / 60
+        if diff_minutes <= config.SCAN_TOLERANCE_MINUTES:
+            return True
+    return False
+
+
 def previous_scan_time(scan: str, now: datetime.datetime) -> datetime.datetime:
     """Returns the nominal datetime of the scan immediately prior to `scan`
     at `now`, per config.SCAN_TIMES_PT. premarket's previous scan is
@@ -102,6 +115,9 @@ def run_scan(dry_run: bool = False, limit: int | None = None) -> dict:
             return {"setups": [], "digest": None}
         if not market_open_today(now):
             logger.info("Market not open today (%s); exiting.", now.date())
+            return {"setups": [], "digest": None}
+        if not within_scan_tolerance(now):
+            logger.info("Outside scheduled scan window (%s); exiting.", now.time())
             return {"setups": [], "digest": None}
 
     scan = _current_scan_label(now)
