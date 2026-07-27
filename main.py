@@ -184,7 +184,8 @@ def run_scan(dry_run: bool = False, limit: int | None = None) -> dict:
         summary_text = journal.summarize_stats(stats)
 
     if alertable:
-        message = digest.build_digest(scan, now, alertable, scan_counts, stats)
+        market_context = data.fetch_market_context()
+        message = digest.build_digest(scan, now, alertable, scan_counts, stats, market_context=market_context)
     else:
         reason = "No setups. No survivors reached the alert threshold this scan."
         message = digest.build_no_setup_digest(scan, now, scan_counts, reason, stats, session_number)

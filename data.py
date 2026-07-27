@@ -116,6 +116,36 @@ def fetch_ohlcv(symbols: list[str], timeframe: str) -> dict[str, pd.DataFrame]:
     return result
 
 
+def fetch_market_context() -> str:
+    """SPY/QQQ daily % change + VIX level for the digest header. PLAN.md §10.
+    Never raises -- returns "" on any failure or missing data, since this is
+    decorative context that must not block or crash the scan."""
+    try:
+        frames = fetch_ohlcv(["SPY", "QQQ", "^VIX"], "daily")
+    except Exception as e:
+        logger.warning("fetch_market_context failed: %r", e)
+        return ""
+
+    parts = []
+    for symbol in ("SPY", "QQQ"):
+        df = frames.get(symbol)
+        if df is None or len(df) < 2:
+            continue
+        prev_close = df["Close"].iloc[-2]
+        close = df["Close"].iloc[-1]
+        if prev_close == 0:
+            continue
+        pct = (close - prev_close) / prev_close * 100
+        sign = "+" if pct >= 0 else ""
+        parts.append(f"{symbol} {sign}{pct:.1f}%")
+
+    vix_df = frames.get("^VIX")
+    if vix_df is not None and len(vix_df) >= 1:
+        parts.append(f"VIX {vix_df['Close'].iloc[-1]:.1f}")
+
+    return " | ".join(parts)
+
+
 def fetch_all_timeframes(symbols: list[str]) -> dict[str, dict[str, pd.DataFrame]]:
     """Fetch 30m/4h/daily for all symbols; keep only symbols present on all three."""
     per_tf = {tf: fetch_ohlcv(symbols, tf) for tf in config.TIMEFRAMES}

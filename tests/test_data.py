@@ -3,7 +3,8 @@ import io
 import pandas as pd
 import pytest
 import requests
-from data import build_universe, fetch_ohlcv, fetch_all_timeframes, _scrape_tickers, _sp500_tickers, _nasdaq100_tickers
+import data
+from data import build_universe, fetch_ohlcv, fetch_all_timeframes, fetch_market_context, _scrape_tickers, _sp500_tickers, _nasdaq100_tickers
 
 
 class _FakeResp:
@@ -91,3 +92,41 @@ def test_fetch_all_timeframes_shape():
     result = fetch_all_timeframes(["AAPL"])
     assert "AAPL" in result
     assert set(result["AAPL"].keys()) == {"30m", "4h", "daily"}
+
+
+def _daily_df(closes):
+    idx = pd.date_range("2026-07-01", periods=len(closes), freq="D")
+    return pd.DataFrame({"Open": closes, "High": closes, "Low": closes, "Close": closes, "Volume": [1_000_000] * len(closes)}, index=idx)
+
+
+def test_fetch_market_context_formats_all_three(monkeypatch):
+    def _fake_fetch(symbols, timeframe):
+        assert timeframe == "daily"
+        return {
+            "SPY": _daily_df([500.0, 501.5]),
+            "QQQ": _daily_df([400.0, 398.0]),
+            "^VIX": _daily_df([14.2]),
+        }
+    monkeypatch.setattr(data, "fetch_ohlcv", _fake_fetch)
+    result = fetch_market_context()
+    assert result == "SPY +0.3% | QQQ -0.5% | VIX 14.2"
+
+
+def test_fetch_market_context_skips_missing_symbol(monkeypatch):
+    def _fake_fetch(symbols, timeframe):
+        return {"SPY": _daily_df([500.0, 505.0])}  # QQQ and ^VIX omitted, as fetch_ohlcv does for missing data
+    monkeypatch.setattr(data, "fetch_ohlcv", _fake_fetch)
+    result = fetch_market_context()
+    assert result == "SPY +1.0%"
+
+
+def test_fetch_market_context_returns_empty_on_exception(monkeypatch):
+    def _raise(*a, **k):
+        raise RuntimeError("network down")
+    monkeypatch.setattr(data, "fetch_ohlcv", _raise)
+    assert fetch_market_context() == ""
+
+
+def test_fetch_market_context_returns_empty_when_nothing_available(monkeypatch):
+    monkeypatch.setattr(data, "fetch_ohlcv", lambda symbols, timeframe: {})
+    assert fetch_market_context() == ""

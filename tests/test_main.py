@@ -146,3 +146,45 @@ def test_run_scan_exits_when_outside_tolerance(monkeypatch):
 
     result = main.run_scan(dry_run=False)
     assert result == {"setups": [], "digest": None}
+
+
+def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
+    import journal as journal_mod
+    import filter as filter_mod
+    import news
+    import analyst
+    import digest
+
+    monkeypatch.setattr(journal_mod, "load_journal", lambda path="journal.json": [])
+    monkeypatch.setattr(journal_mod, "save_journal", lambda alerts, path="journal.json": None)
+    monkeypatch.setattr(journal_mod, "log_alerts", lambda setups, scan, now: None)
+    monkeypatch.setattr(journal_mod, "compute_stats", lambda alerts: {})
+    monkeypatch.setattr(journal_mod, "should_compute_stats", lambda alerts: False)
+
+    monkeypatch.setattr(main.data, "build_universe", lambda: ["NVDA"])
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {}})
+    monkeypatch.setattr(
+        filter_mod, "run_filter",
+        lambda frames: ([{"symbol": "NVDA", "analysis": {"alignment": "long"}}], []),
+    )
+    monkeypatch.setattr(news, "attach_news", lambda survivors, now: survivors)
+    monkeypatch.setattr(
+        analyst, "analyze_survivors",
+        lambda survivors, now: [{"symbol": "NVDA", "conviction": 8}],
+    )
+    monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
+    monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
+
+    monkeypatch.setattr(main.data, "fetch_market_context", lambda: "SPY +0.3% | QQQ +0.5% | VIX 14.2")
+
+    captured = {}
+
+    def _fake_build_digest(scan, now, alertable, scan_counts, stats, market_context=""):
+        captured["market_context"] = market_context
+        return "DIGEST"
+
+    monkeypatch.setattr(digest, "build_digest", _fake_build_digest)
+
+    result = main.run_scan(dry_run=True)
+    assert captured["market_context"] == "SPY +0.3% | QQQ +0.5% | VIX 14.2"
+    assert result["digest"] == "DIGEST"
