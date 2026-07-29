@@ -4,6 +4,7 @@ numpy
 anthropic
 requests
 beautifulsoup4
+lxml
 feedparser
 python-telegram-bot
 pytz

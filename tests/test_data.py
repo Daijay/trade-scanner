@@ -63,6 +63,13 @@ def test_scrape_tickers_raises_on_table_index_out_of_range(monkeypatch):
     with pytest.raises(RuntimeError):
         _scrape_tickers("https://example.com/sp500", 5, "Symbol")
 
+def test_lxml_importable():
+    """pd.read_html's default flavor requires lxml (html5lib, the fallback
+    flavor's dependency, is not installed in this project) -- this guards
+    against a repeat of the 'ModuleNotFoundError: No module named lxml' CI
+    failure that surfaced when requirements.txt was missing it."""
+    import lxml  # noqa: F401
+
 def test_build_universe_dedupes_and_caps(monkeypatch):
     import config
     monkeypatch.setattr(config, "SP500_ENABLED", False)
