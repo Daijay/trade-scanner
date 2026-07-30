@@ -3,6 +3,7 @@ import pytz
 import config
 import main
 import journal
+import notify
 from main import is_weekday, market_open_today
 
 
@@ -188,3 +189,19 @@ def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
     result = main.run_scan(dry_run=True)
     assert captured["market_context"] == "SPY +0.3% | QQQ +0.5% | VIX 14.2"
     assert result["digest"] == "DIGEST"
+
+
+def test_main_passes_run_scan_digest_to_notify(monkeypatch):
+    """Regression test: main() must forward run_scan()'s real digest output
+    to notify.send_digest, not a stub or hardcoded placeholder."""
+    import sys
+    sentinel_digest = "REAL DIGEST CONTENT - not a placeholder"
+    monkeypatch.setattr(main, "run_scan", lambda dry_run, limit: {"setups": [], "digest": sentinel_digest})
+
+    captured = {}
+    monkeypatch.setattr(notify, "send_digest", lambda msg: captured.update(sent=msg))
+
+    monkeypatch.setattr(sys, "argv", ["main.py"])
+    main.main()
+
+    assert captured["sent"] == sentinel_digest
