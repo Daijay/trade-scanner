@@ -15,12 +15,14 @@ import logging
 import os
 import smtplib
 
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import telegram  # noqa: E402  (import after load_dotenv, matches analyst.py's anthropic import convention)
 
+import config  # noqa: E402
 from digest import split_for_telegram  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -74,6 +76,23 @@ def send_email(message: str) -> bool:
         return False
 
 
+def send_discord(message: str) -> bool:
+    webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
+    if not webhook_url:
+        logger.info("Discord not configured, skipping.")
+        return False
+
+    try:
+        parts = split_for_telegram(message, limit=config.DISCORD_MESSAGE_LIMIT)
+        for part in parts:
+            response = requests.post(webhook_url, json={"content": part}, timeout=15)
+            response.raise_for_status()
+        return True
+    except Exception as e:
+        logger.warning("Discord delivery failed: %r", e)
+        return False
+
+
 def send_digest(message: str) -> None:
     try:
         send_telegram(message)
@@ -84,3 +103,8 @@ def send_digest(message: str) -> None:
         send_email(message)
     except Exception as e:
         logger.warning("Unexpected error sending email: %r", e)
+
+    try:
+        send_discord(message)
+    except Exception as e:
+        logger.warning("Unexpected error sending Discord: %r", e)

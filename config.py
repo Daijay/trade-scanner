@@ -45,6 +45,9 @@ HORIZON_BY_ALIGNMENT = {         # alignment score -> trade horizon (computed in
     2: "intraday",
 }
 
+# -- Discord --------------------------------------------------------------
+DISCORD_MESSAGE_LIMIT = 2000     # Discord's hard message character cap
+
 # -- Journal ----------------------------------------------------------------
 SCRATCH_AFTER_BARS = 12         # bars open with no hit -> scratch
 STATS_EVERY = 30                # resolved alerts per review

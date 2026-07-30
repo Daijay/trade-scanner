@@ -119,3 +119,81 @@ def test_send_digest_email_failure_does_not_block_telegram(monkeypatch):
     monkeypatch.setattr(notify, "send_email", lambda msg: (_ for _ in ()).throw(RuntimeError("boom")))
     notify.send_digest("the digest")
     assert telegram_calls == ["the digest"]
+
+
+def test_send_discord_not_configured_logs_and_skips(monkeypatch, caplog):
+    monkeypatch.delenv("DISCORD_WEBHOOK_URL", raising=False)
+    with caplog.at_level(logging.INFO):
+        result = notify.send_discord("hello")
+    assert result is False
+    assert "not configured" in caplog.text.lower()
+
+
+def test_send_discord_posts_json_content(monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/fake/fake")
+
+    calls = []
+
+    class _FakeResponse:
+        def raise_for_status(self):
+            pass
+
+    def _fake_post(url, json, timeout):
+        calls.append((url, json, timeout))
+        return _FakeResponse()
+
+    monkeypatch.setattr(notify.requests, "post", _fake_post)
+    monkeypatch.setattr(notify, "split_for_telegram", lambda msg, limit=4096: ["part1", "part2"])
+
+    result = notify.send_discord("a long message")
+    assert result is True
+    assert calls[0] == ("https://discord.com/api/webhooks/fake/fake", {"content": "part1"}, 15)
+    assert calls[1] == ("https://discord.com/api/webhooks/fake/fake", {"content": "part2"}, 15)
+
+
+def test_send_discord_uses_config_message_limit(monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/fake/fake")
+
+    class _FakeResponse:
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(notify.requests, "post", lambda *a, **k: _FakeResponse())
+
+    captured = {}
+    def _fake_split(msg, limit=4096):
+        captured["limit"] = limit
+        return [msg]
+    monkeypatch.setattr(notify, "split_for_telegram", _fake_split)
+
+    notify.send_discord("hello")
+    assert captured["limit"] == notify.config.DISCORD_MESSAGE_LIMIT
+
+
+def test_send_discord_http_error_returns_false(monkeypatch):
+    monkeypatch.setenv("DISCORD_WEBHOOK_URL", "https://discord.com/api/webhooks/fake/fake")
+
+    class _FailingResponse:
+        def raise_for_status(self):
+            raise notify.requests.exceptions.HTTPError("400 Bad Request")
+
+    monkeypatch.setattr(notify.requests, "post", lambda *a, **k: _FailingResponse())
+    assert notify.send_discord("hello") is False
+
+
+def test_send_digest_calls_discord_independently(monkeypatch):
+    calls = []
+    monkeypatch.setattr(notify, "send_telegram", lambda msg: calls.append("telegram") or True)
+    monkeypatch.setattr(notify, "send_email", lambda msg: calls.append("email") or True)
+    monkeypatch.setattr(notify, "send_discord", lambda msg: calls.append("discord") or True)
+    notify.send_digest("the digest")
+    assert set(calls) == {"telegram", "email", "discord"}
+
+
+def test_send_digest_discord_failure_does_not_block_others(monkeypatch):
+    monkeypatch.setattr(notify, "send_telegram", lambda msg: True)
+    email_calls = []
+    monkeypatch.setattr(notify, "send_email", lambda msg: email_calls.append(msg) or True)
+    monkeypatch.setattr(notify, "send_discord", lambda msg: (_ for _ in ()).throw(RuntimeError("boom")))
+    notify.send_digest("the digest")
+    assert email_calls == ["the digest"]
