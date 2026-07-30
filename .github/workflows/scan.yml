@@ -38,6 +38,10 @@ jobs:
         run: |
           git config user.name "trade-scanner-bot"
           git config user.email "actions@github.com"
-          git add -f journal.json
-          git diff --cached --quiet || git commit -m "Update journal.json [skip ci]"
-          git push
+          if [ -f journal.json ]; then
+            git add -f journal.json
+            git diff --cached --quiet || git commit -m "Update journal.json [skip ci]"
+            git push
+          else
+            echo "journal.json not present this run (scan likely exited early via a guard); nothing to commit."
+          fi
