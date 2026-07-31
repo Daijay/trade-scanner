@@ -70,7 +70,7 @@ SCAN_TIMES_PT = {
     "premarket": datetime.time(6, 0),
     "preclose": datetime.time(12, 30),
 }
-SCAN_TOLERANCE_MINUTES = 20
+SCAN_TOLERANCE_MINUTES = 90
 
 # Full-day NYSE closures. Must be updated yearly (see nyse.com holiday calendar).
 MARKET_HOLIDAYS = [

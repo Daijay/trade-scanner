@@ -3,10 +3,18 @@ name: Trade Scan
 on:
   workflow_dispatch:
   schedule:
-    # 6:00 AM PT premarket -> 13:00 UTC (PDT) / 14:00 UTC (PST)
-    - cron: '0 13,14 * * 1-5'
-    # 12:30 PM PT preclose -> 19:30 UTC (PDT) / 20:30 UTC (PST)
-    - cron: '30 19,20 * * 1-5'
+    # Targets: 6:00 AM PT premarket (13:00 UTC PDT / 14:00 UTC PST) and
+    # 12:30 PM PT preclose (19:30 UTC PDT / 20:30 UTC PST).
+    #
+    # Fired 45 min early, off the :00/:30 marks: GitHub Actions queues
+    # scheduled runs at those popular slots under heavy load and routinely
+    # delays them 50min-2h+ (observed in run history), which blew past the
+    # old +/-20min tolerance every single day. Firing early at an off-peak
+    # minute plus a wider config.SCAN_TOLERANCE_MINUTES (90) absorbs that
+    # jitter instead of fighting it. within_scan_tolerance() (main.py) still
+    # filters out whichever DST-offset entry doesn't apply.
+    - cron: '15 12,13 * * 1-5'
+    - cron: '45 18,19 * * 1-5'
 
 permissions:
   contents: write
