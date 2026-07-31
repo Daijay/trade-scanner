@@ -77,7 +77,7 @@ def _timeframe_checks(setup: dict) -> str:
     parts = []
     for tf in _TF_ORDER:
         snap = timeframes.get(tf)
-        if not snap:
+        if not snap or not isinstance(snap, dict):
             continue
         trend = snap.get("trend")
         if trend is None:

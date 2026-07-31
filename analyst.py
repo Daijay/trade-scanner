@@ -112,8 +112,14 @@ symbol, matching this exact schema:
 
 {{"ticker": str, "bias": "long"|"short", "conviction": int (0-10),
  "entry": float, "stop": float, "target": float, "rr": float,
- "horizon": "swing"|"intraday", "timeframes": {{"30m": ..., "4h": ..., "daily": ...}},
+ "horizon": "swing"|"intraday",
+ "timeframes": {{"30m": {{"trend": "up"|"down"|"flat"}},
+                 "4h": {{"trend": "up"|"down"|"flat"}},
+                 "daily": {{"trend": "up"|"down"|"flat"}}}},
  "news_read": str, "reasoning": str}}
+
+Each of "30m"/"4h"/"daily" MUST be an object with a "trend" key as shown --
+never a bare string.
 
 Rules:
 - Stops MUST be derived from ATR (atr14 in the payload), not arbitrary round numbers.
@@ -152,6 +158,39 @@ def _strip_fences(text: str) -> str:
     return text
 
 
+_TF_KEYS = ("30m", "4h", "daily")
+_TREND_SYNONYMS = {"bullish": "up", "bearish": "down", "neutral": "flat"}
+
+
+def _normalize_timeframes(item: dict) -> None:
+    """Real Claude output has been observed collapsing a per-timeframe
+    snapshot to a bare trend string (e.g. "up") instead of the requested
+    {"trend": "up"} object -- digest.py's _timeframe_checks assumes a dict
+    and crashes (AttributeError: 'str' object has no attribute 'get') on
+    the bare-string shape. Normalize both shapes here, at the point where
+    analyst.py's output is constructed, rather than pushing the defensive
+    handling onto every consumer. Also maps the classify_trend() vocabulary
+    (bullish/bearish/neutral) onto digest.py's up/down/flat in case Claude
+    echoes the input payload's trend wording instead of the requested one."""
+    timeframes = item.get("timeframes")
+    if not isinstance(timeframes, dict):
+        item["timeframes"] = {}
+        return
+    normalized = {}
+    for tf in _TF_KEYS:
+        snap = timeframes.get(tf)
+        if isinstance(snap, dict):
+            trend = snap.get("trend")
+        elif isinstance(snap, str):
+            trend = snap
+        else:
+            trend = None
+        if isinstance(trend, str):
+            trend = _TREND_SYNONYMS.get(trend.lower(), trend.lower())
+        normalized[tf] = {"trend": trend}
+    item["timeframes"] = normalized
+
+
 def _parse_response(text: str) -> list[dict] | None:
     """Returns a validated list of dicts, or None on any failure."""
     try:
@@ -163,6 +202,7 @@ def _parse_response(text: str) -> list[dict] | None:
     for item in data:
         if not isinstance(item, dict) or not _REQUIRED_KEYS.issubset(item.keys()):
             return None
+        _normalize_timeframes(item)
     return data
 
 
@@ -207,12 +247,25 @@ def _analyze_batch(client, batch: list[dict]) -> list[dict]:
         logger.warning("batch skipped: %s", ", ".join(symbols))
         return []
 
-    returned_tickers = {item["ticker"] for item in parsed}
-    missing = set(symbols) - returned_tickers
+    known = set(symbols)
+    seen: set[str] = set()
+    filtered = []
+    for item in parsed:
+        ticker = item["ticker"]
+        if ticker not in known:
+            logger.info("Dropping setup for ticker not in this batch's survivors: %s", ticker)
+            continue
+        if ticker in seen:
+            logger.info("Dropping duplicate setup for ticker: %s", ticker)
+            continue
+        seen.add(ticker)
+        filtered.append(item)
+
+    missing = known - seen
     if missing:
         logger.info("Symbols skipped for this batch (no matching ticker in response): %s", ", ".join(sorted(missing)))
 
-    return parsed
+    return filtered
 
 
 def analyze_survivors(survivors: list[dict], now: datetime.datetime) -> list[dict]:

@@ -185,6 +185,9 @@ def test_analyze_survivors_batching_calls_once_per_batch(monkeypatch):
 
 
 def test_analyze_survivors_mismatched_tickers_no_crash(monkeypatch):
+    """A hallucinated ticker outside this batch's survivors must not become
+    an alert (regression: real Claude output returned 31 setups for 30
+    survivors -- one extra, unverified-against-filters ticker)."""
     survivors = [_survivor("AMD"), _survivor("INTC")]
     # response has an extra unknown ticker and is missing INTC
     response_text = json.dumps([_setup_json("AMD"), _setup_json("UNKNOWN")])
@@ -195,8 +198,42 @@ def test_analyze_survivors_mismatched_tickers_no_crash(monkeypatch):
     results = analyst.analyze_survivors(survivors, now)
 
     tickers = {r["ticker"] for r in results}
-    assert tickers == {"AMD", "UNKNOWN"}
+    assert tickers == {"AMD"}
     assert fake_client.messages.call_count == 1
+
+
+def test_analyze_survivors_duplicate_ticker_deduped(monkeypatch):
+    survivors = [_survivor("AMD")]
+    response_text = json.dumps([_setup_json("AMD"), _setup_json("AMD")])
+    fake_client = _FakeClient([response_text])
+    monkeypatch.setattr(analyst.anthropic, "Anthropic", lambda: fake_client)
+
+    now = datetime.datetime(2026, 7, 21, tzinfo=datetime.timezone.utc)
+    results = analyst.analyze_survivors(survivors, now)
+
+    assert len(results) == 1
+
+
+def test_analyze_survivors_normalizes_bare_string_timeframes(monkeypatch):
+    """Regression: real Claude output returned each timeframe as a bare
+    trend string (e.g. "up") instead of {"trend": "up"}, which crashed
+    digest.py's _timeframe_checks with AttributeError. analyst.py must
+    normalize this shape before it leaves analyze_survivors."""
+    survivors = [_survivor("AAPL")]
+    setup = _setup_json("AAPL")
+    setup["timeframes"] = {"30m": "bullish", "4h": "down", "daily": "flat"}
+    response_text = json.dumps([setup])
+    fake_client = _FakeClient([response_text])
+    monkeypatch.setattr(analyst.anthropic, "Anthropic", lambda: fake_client)
+
+    now = datetime.datetime(2026, 7, 21, tzinfo=datetime.timezone.utc)
+    results = analyst.analyze_survivors(survivors, now)
+
+    assert len(results) == 1
+    tfs = results[0]["timeframes"]
+    assert tfs["30m"] == {"trend": "up"}
+    assert tfs["4h"] == {"trend": "down"}
+    assert tfs["daily"] == {"trend": "flat"}
 
 
 def test_analyze_survivors_empty_list_no_api_call(monkeypatch):
