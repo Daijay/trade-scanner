@@ -21,6 +21,10 @@ def animation_enabled() -> bool:
     return bool(config.SCAN_ANIMATION) and os.getenv("CI") is None
 
 
+def chart_animation_enabled() -> bool:
+    return bool(config.SCAN_CHART_ANIMATION) and os.getenv("CI") is None
+
+
 def flash_ticker(symbol: str, passed: bool, reason: str, alignment: int) -> None:
     status = "[green]passed[/green]" if passed else "[red]filtered[/red]"
     mark = "✅" if passed else "✗"

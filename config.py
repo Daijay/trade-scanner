@@ -56,6 +56,7 @@ MIN_PAPER_SESSIONS = 30
 
 # -- Display -----------------------------------------------------------------
 SCAN_ANIMATION = True           # auto-disabled when CI env var present
+SCAN_CHART_ANIMATION = False    # opt-in: opens a live matplotlib window per scan; auto-disabled when CI env var present
 TICKER_DELAY = 0.2              # seconds per ticker
 
 # -- Schedule / market guards --------------------------------------------
