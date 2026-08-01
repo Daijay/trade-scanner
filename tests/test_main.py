@@ -195,7 +195,7 @@ def test_run_scan_force_run_reaches_pipeline_outside_tolerance(monkeypatch):
     monkeypatch.setattr(journal_mod, "should_compute_stats", lambda alerts: False)
 
     monkeypatch.setattr(main.data, "build_universe", lambda: ["NVDA"])
-    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {"daily": None}})
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {}})
     monkeypatch.setattr(
         filter_mod, "run_filter",
         lambda frames: ([{"symbol": "NVDA", "analysis": {"alignment": "long"}}], []),
@@ -206,8 +206,6 @@ def test_run_scan_force_run_reaches_pipeline_outside_tolerance(monkeypatch):
         lambda survivors, now: [{"symbol": "NVDA", "conviction": 8}],
     )
     monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
-    monkeypatch.setattr(main.display, "flash_chart", lambda *a, **k: None)
-    monkeypatch.setattr(main.display, "close_chart_window", lambda: None)
     monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
     monkeypatch.setattr(main.data, "fetch_market_context", lambda: "")
     monkeypatch.setattr(digest, "build_digest", lambda *a, **k: "DIGEST")
@@ -246,7 +244,7 @@ def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
     monkeypatch.setattr(journal_mod, "should_compute_stats", lambda alerts: False)
 
     monkeypatch.setattr(main.data, "build_universe", lambda: ["NVDA"])
-    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {"daily": None}})
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {}})
     monkeypatch.setattr(
         filter_mod, "run_filter",
         lambda frames: ([{"symbol": "NVDA", "analysis": {"alignment": "long"}}], []),
@@ -257,8 +255,6 @@ def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
         lambda survivors, now: [{"symbol": "NVDA", "conviction": 8}],
     )
     monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
-    monkeypatch.setattr(main.display, "flash_chart", lambda *a, **k: None)
-    monkeypatch.setattr(main.display, "close_chart_window", lambda: None)
     monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
 
     monkeypatch.setattr(main.data, "fetch_market_context", lambda: "SPY +0.3% | QQQ +0.5% | VIX 14.2")
@@ -293,44 +289,3 @@ def test_main_passes_run_scan_digest_to_notify(monkeypatch):
     main.main()
 
     assert captured["sent"] == sentinel_digest
-
-
-def test_run_scan_calls_flash_chart_per_symbol(monkeypatch):
-    import display
-    import filter as filter_mod
-    import data as data_mod
-    import pandas as pd
-
-    daily_df = pd.DataFrame({
-        "Open": [1.0], "High": [1.5], "Low": [0.5], "Close": [1.2],
-    }, index=pd.DatetimeIndex(["2026-07-30"]))
-
-    survivors = [{"symbol": "AAPL", "analysis": {"alignment": 3, "snapshots": {"daily": {"close": 1.2}}}, "score": 1.0, "reason": ""}]
-    filtered_out = [{"symbol": "MSFT", "analysis": {"alignment": 0}, "reason": "low ATR"}]
-
-    monkeypatch.setattr(filter_mod, "run_filter", lambda frames: (survivors, filtered_out))
-    monkeypatch.setattr(data_mod, "build_universe", lambda: ["AAPL", "MSFT"])
-    monkeypatch.setattr(data_mod, "fetch_all_timeframes", lambda syms: {
-        "AAPL": {"daily": daily_df}, "MSFT": {"daily": daily_df},
-    })
-    monkeypatch.setattr("main.filter_mod", filter_mod)
-    monkeypatch.setattr("main.data", data_mod)
-
-    calls = []
-    monkeypatch.setattr(display, "flash_chart", lambda symbol, df, passed: calls.append((symbol, passed)))
-    monkeypatch.setattr(display, "close_chart_window", lambda: calls.append(("closed",)))
-    monkeypatch.setattr(display, "flash_ticker", lambda *a, **k: None)
-    monkeypatch.setattr(display, "print_survivor_table", lambda *a, **k: None)
-
-    import journal
-    monkeypatch.setattr(journal, "load_journal", lambda: [])
-    monkeypatch.setattr(journal, "save_journal", lambda alerts: None)
-    monkeypatch.setattr(journal, "log_alerts", lambda setups, scan, now: [])
-    monkeypatch.setattr(journal, "compute_stats", lambda alerts: {"hit_rate": None, "adj_hit_rate": None, "scratch_rate": None})
-    monkeypatch.setattr(journal, "should_compute_stats", lambda alerts: False)
-
-    result = main.run_scan(dry_run=True, limit=0)
-
-    assert ("AAPL", True) in calls
-    assert ("MSFT", False) in calls
-    assert ("closed",) in calls

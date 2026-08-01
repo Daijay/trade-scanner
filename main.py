@@ -140,12 +140,9 @@ def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = 
 
     for entry in survivors:
         display.flash_ticker(entry["symbol"], True, "", entry["analysis"]["alignment"])
-        display.flash_chart(entry["symbol"], universe_frames[entry["symbol"]]["daily"], True)
     for entry in filtered_out:
         if entry["reason"] != "excess":
             display.flash_ticker(entry["symbol"], False, entry["reason"], entry["analysis"]["alignment"])
-            display.flash_chart(entry["symbol"], universe_frames[entry["symbol"]]["daily"], False)
-    display.close_chart_window()
 
     display.print_survivor_table(survivors)
     scan_counts = {"scanned": len(universe), "filtered": len(survivors), "alerts": 0}
