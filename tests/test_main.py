@@ -149,6 +149,87 @@ def test_run_scan_exits_when_outside_tolerance(monkeypatch):
     assert result == {"setups": [], "digest": None}
 
 
+def test_run_scan_force_run_bypasses_tolerance_but_not_weekday(monkeypatch):
+    """force_run must skip only within_scan_tolerance; weekday/holiday guards
+    still apply so it can never be used to run outside real market days."""
+    tz = pytz.timezone("America/Vancouver")
+    weekend = tz.localize(datetime.datetime(2026, 7, 25, 9, 0))  # a Saturday, off-hours
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return weekend
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    def _fail(*a, **k):
+        raise AssertionError("should not reach universe build on a non-weekday even with force_run")
+
+    monkeypatch.setattr(main.data, "build_universe", _fail)
+
+    result = main.run_scan(dry_run=False, force_run=True)
+    assert result == {"setups": [], "digest": None}
+
+
+def test_run_scan_force_run_reaches_pipeline_outside_tolerance(monkeypatch):
+    import journal as journal_mod
+    import filter as filter_mod
+    import news
+    import analyst
+    import digest
+
+    tz = pytz.timezone("America/Vancouver")
+    off_hours = tz.localize(datetime.datetime(2026, 7, 22, 9, 0))  # a Wednesday, off-hours
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return off_hours
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    monkeypatch.setattr(journal_mod, "load_journal", lambda path="journal.json": [])
+    monkeypatch.setattr(journal_mod, "save_journal", lambda alerts, path="journal.json": None)
+    monkeypatch.setattr(journal_mod, "log_alerts", lambda setups, scan, now: None)
+    monkeypatch.setattr(journal_mod, "compute_stats", lambda alerts: {})
+    monkeypatch.setattr(journal_mod, "should_compute_stats", lambda alerts: False)
+
+    monkeypatch.setattr(main.data, "build_universe", lambda: ["NVDA"])
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {}})
+    monkeypatch.setattr(
+        filter_mod, "run_filter",
+        lambda frames: ([{"symbol": "NVDA", "analysis": {"alignment": "long"}}], []),
+    )
+    monkeypatch.setattr(news, "attach_news", lambda survivors, now: survivors)
+    monkeypatch.setattr(
+        analyst, "analyze_survivors",
+        lambda survivors, now: [{"symbol": "NVDA", "conviction": 8}],
+    )
+    monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
+    monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
+    monkeypatch.setattr(main.data, "fetch_market_context", lambda: "")
+    monkeypatch.setattr(digest, "build_digest", lambda *a, **k: "DIGEST")
+
+    result = main.run_scan(dry_run=False, force_run=True)
+    assert result["digest"] == "DIGEST"
+
+
+def test_main_force_run_flag_parsed(monkeypatch):
+    import sys
+
+    captured = {}
+
+    def _fake_run_scan(dry_run, limit, force_run):
+        captured["force_run"] = force_run
+        return {"setups": [], "digest": None}
+
+    monkeypatch.setattr(main, "run_scan", _fake_run_scan)
+    monkeypatch.setattr(sys, "argv", ["main.py", "--force-run"])
+    main.main()
+
+    assert captured["force_run"] is True
+
+
 def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
     import journal as journal_mod
     import filter as filter_mod
@@ -196,7 +277,10 @@ def test_main_passes_run_scan_digest_to_notify(monkeypatch):
     to notify.send_digest, not a stub or hardcoded placeholder."""
     import sys
     sentinel_digest = "REAL DIGEST CONTENT - not a placeholder"
-    monkeypatch.setattr(main, "run_scan", lambda dry_run, limit: {"setups": [], "digest": sentinel_digest})
+    monkeypatch.setattr(
+        main, "run_scan",
+        lambda dry_run, limit, force_run: {"setups": [], "digest": sentinel_digest},
+    )
 
     captured = {}
     monkeypatch.setattr(notify, "send_digest", lambda msg: captured.update(sent=msg))

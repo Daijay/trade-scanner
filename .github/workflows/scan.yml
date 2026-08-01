@@ -2,6 +2,11 @@ name: Trade Scan
 
 on:
   workflow_dispatch:
+    inputs:
+      force_run:
+        description: "Bypass the within_scan_tolerance time-of-day guard for on-demand testing (weekday/holiday guards still apply). Never used for scheduled runs."
+        type: boolean
+        default: false
   schedule:
     # Targets: 6:00 AM PT premarket (13:00 UTC PDT / 14:00 UTC PST) and
     # 12:30 PM PT preclose (19:30 UTC PDT / 20:30 UTC PST).
@@ -41,7 +46,17 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run scan
-        run: python main.py
+        # force_run only exists on the workflow_dispatch input schema, so this
+        # is false for every schedule-triggered run regardless of the
+        # event_name check -- the check is kept explicit anyway so a manual
+        # dispatch with force_run left at its default (false) behaves
+        # identically to a real scheduled run.
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_run }}" = "true" ]; then
+            python main.py --force-run
+          else
+            python main.py
+          fi
 
       - name: Commit updated journal.json
         run: |

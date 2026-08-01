@@ -105,7 +105,7 @@ def _current_scan_label(now: datetime.datetime) -> str:
     return best[0]
 
 
-def run_scan(dry_run: bool = False, limit: int | None = None) -> dict:
+def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = False) -> dict:
     tz = pytz.timezone(config.MARKET_TZ)
     now = datetime.datetime.now(tz)
 
@@ -116,9 +116,11 @@ def run_scan(dry_run: bool = False, limit: int | None = None) -> dict:
         if not market_open_today(now):
             logger.info("Market not open today (%s); exiting.", now.date())
             return {"setups": [], "digest": None}
-        if not within_scan_tolerance(now):
+        if not force_run and not within_scan_tolerance(now):
             logger.info("Outside scheduled scan window (%s); exiting.", now.time())
             return {"setups": [], "digest": None}
+        if force_run:
+            logger.info("force_run set: bypassing within_scan_tolerance (weekday/holiday guards still apply).")
 
     scan = _current_scan_label(now)
 
@@ -203,9 +205,15 @@ def main() -> int:
         "--limit", type=int, default=None,
         help="Truncate survivors to the first N before calling news/analyst (manual cost-controlled testing)",
     )
+    parser.add_argument(
+        "--force-run", action="store_true",
+        help="Bypass only the within_scan_tolerance time-of-day check for on-demand manual "
+             "testing (e.g. workflow_dispatch); weekday/holiday guards still apply. Never set "
+             "this for scheduled runs.",
+    )
     args = parser.parse_args()
 
-    result = run_scan(dry_run=args.dry_run, limit=args.limit)
+    result = run_scan(dry_run=args.dry_run, limit=args.limit, force_run=args.force_run)
     if result.get("digest"):
         import notify
         notify.send_digest(result["digest"])
