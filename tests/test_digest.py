@@ -178,6 +178,116 @@ _TICKER_NAMES = ["ALPHA", "BRAVO", "CHRLI", "DELTA", "ECHOX",
                  "FXTRT", "GLFXX", "HOTLX", "INDXX", "JULTX"]
 
 
+def _alert(**overrides):
+    base = {
+        "id": "1",
+        "timestamp": "2026-07-22T06:05:00",
+        "scan": "premarket",
+        "ticker": "NVDA",
+        "bias": "long",
+        "conviction": 8,
+        "entry": 100.0,
+        "stop": 95.0,
+        "target": 110.0,
+        "rr": 2.0,
+        "horizon": "swing",
+        "alerted": True,
+        "status": "open",
+        "position": None,
+        "resolved_at": None,
+        "outcome": None,
+        "bars_open": 0,
+    }
+    base.update(overrides)
+    return base
+
+
+_TODAY = datetime.date(2026, 7, 22)
+
+
+# -- build_daily_report ------------------------------------------------------
+
+def test_daily_report_lists_todays_fired_alerts_only():
+    journal = [
+        _alert(ticker="NVDA", timestamp="2026-07-22T06:05:00"),
+        _alert(ticker="AMD", timestamp="2026-07-21T06:05:00"),
+    ]
+    report = digest.build_daily_report(journal, _TODAY)
+    assert "NVDA" in report
+    assert "AMD" not in report
+
+
+def test_daily_report_resolutions_use_resolved_at_not_timestamp():
+    journal = [
+        _alert(ticker="OLDX", timestamp="2026-07-10T06:05:00",
+               status="closed", resolved_at="2026-07-22T14:00:00", outcome="win"),
+        _alert(ticker="NEWX", timestamp="2026-07-22T06:05:00",
+               status="closed", resolved_at="2026-07-21T14:00:00", outcome="loss"),
+    ]
+    report = digest.build_daily_report(journal, _TODAY)
+    assert "OLDX" in report
+    resolved_idx = report.index("RESOLVED TODAY")
+    journal_idx = report.index("JOURNAL")
+    resolved_section = report[resolved_idx:journal_idx]
+    assert "OLDX" in resolved_section
+    assert "NEWX" not in resolved_section
+
+
+def test_daily_report_batch_summary_counts():
+    journal = [
+        _alert(ticker="A", bias="long", horizon="swing", conviction=8, timestamp="2026-07-22T06:00:00"),
+        _alert(ticker="B", bias="short", horizon="intraday", conviction=6, timestamp="2026-07-22T06:00:00"),
+        _alert(ticker="C", bias="long", horizon="intraday", conviction=7, timestamp="2026-07-22T06:00:00"),
+    ]
+    report = digest.build_daily_report(journal, _TODAY)
+    assert "2 long" in report or "long: 2" in report or "2x long" in report
+    assert "7.0" in report  # average conviction (8+6+7)/3 = 7.0
+
+
+def test_daily_report_empty_journal_no_crash():
+    report = digest.build_daily_report([], _TODAY)
+    assert isinstance(report, str)
+    assert report
+
+
+def test_daily_report_no_resolutions_graceful_state():
+    journal = [
+        _alert(ticker="A", timestamp="2026-07-22T06:00:00", status="open"),
+        _alert(ticker="B", timestamp="2026-07-22T06:00:00", status="open"),
+    ]
+    report = digest.build_daily_report(journal, _TODAY)
+    assert "None" not in report
+    assert "N/A%" not in report
+    assert "Hit rate" not in report
+    assert "2 alerts currently open" in report
+    assert "Session 1" in report
+
+
+def test_daily_report_normal_stats_when_history_exists():
+    journal = [
+        _alert(ticker="A", timestamp="2026-07-22T06:00:00", status="open"),
+        _alert(ticker="X", timestamp="2026-07-01T06:00:00", status="closed",
+               resolved_at="2026-07-02T14:00:00", outcome="win"),
+        _alert(ticker="Y", timestamp="2026-07-01T06:00:00", status="closed",
+               resolved_at="2026-07-02T14:00:00", outcome="win"),
+        _alert(ticker="Z", timestamp="2026-07-01T06:00:00", status="closed",
+               resolved_at="2026-07-02T14:00:00", outcome="loss"),
+    ]
+    report = digest.build_daily_report(journal, _TODAY)
+    assert "Hit rate" in report
+    assert "67%" in report  # 2 wins / 3 total
+
+
+def test_daily_report_session_number_counts_distinct_dates():
+    journal = [
+        _alert(ticker="A", timestamp="2026-07-20T06:00:00", status="open"),
+        _alert(ticker="B", timestamp="2026-07-21T06:00:00", status="open"),
+        _alert(ticker="C", timestamp="2026-07-22T06:00:00", status="open"),
+    ]
+    report = digest.build_daily_report(journal, _TODAY)
+    assert "Session 3" in report
+
+
 def test_split_for_telegram_splits_over_limit():
     setups = [_setup(ticker=t, reasoning="X" * 100) for t in _TICKER_NAMES]
     scan_counts = {"scanned": 100, "filtered": 10, "alerts": 10}

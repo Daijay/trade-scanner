@@ -39,6 +39,7 @@ Judgment calls (documented per the brief):
 import datetime
 
 import config
+import journal
 
 _HEADER_LABELS = {
     "premarket": "PRE-MARKET SCAN",
@@ -280,3 +281,117 @@ def split_for_telegram(message: str, limit: int = 4096) -> list[str]:
     chunks[-1] = f"{chunks[-1]}\n\n{journal_block}"
 
     return chunks
+
+
+# -- build_daily_report ------------------------------------------------------
+
+_DAILY_ALERTS_DIVIDER = f"{_DIVIDER} TODAY'S ALERTS {_DIVIDER}"
+_DAILY_RESOLVED_DIVIDER = f"{_DIVIDER} RESOLVED TODAY {_DIVIDER}"
+
+
+def _daily_header_line(today: datetime.date) -> str:
+    weekday_month = today.strftime("%a %b")
+    timestamp = f"{weekday_month} {today.day}, {today.year}"
+    return f"📊 DAILY REPORT — {timestamp}"
+
+
+def _fired_today(journal_entries: list[dict], today: datetime.date) -> list[dict]:
+    return [
+        a for a in journal_entries
+        if datetime.datetime.fromisoformat(a["timestamp"]).date() == today
+    ]
+
+
+def _resolved_today(journal_entries: list[dict], today: datetime.date) -> list[dict]:
+    return [
+        a for a in journal_entries
+        if a["status"] == "closed"
+        and a.get("resolved_at")
+        and datetime.datetime.fromisoformat(a["resolved_at"]).date() == today
+    ]
+
+
+def _batch_summary_line(fired: list[dict]) -> str:
+    if not fired:
+        return "0 alerts fired today."
+
+    longs = sum(1 for a in fired if a.get("bias") == "long")
+    shorts = sum(1 for a in fired if a.get("bias") == "short")
+    swings = sum(1 for a in fired if a.get("horizon") == "swing")
+    intraday = sum(1 for a in fired if a.get("horizon") == "intraday")
+    avg_conviction = sum(a.get("conviction", 0) for a in fired) / len(fired)
+
+    return (
+        f"{len(fired)} alerts fired — {longs} long / {shorts} short, "
+        f"{swings} swing / {intraday} intraday, "
+        f"avg conviction {avg_conviction:.1f}"
+    )
+
+
+def _fired_alert_line(alert: dict) -> str:
+    ticker = alert.get("ticker", "?")
+    bias = (alert.get("bias") or "").upper()
+    conviction = alert.get("conviction", 0)
+    horizon = alert.get("horizon", "")
+    scan = alert.get("scan", "")
+    return f"{ticker} — {bias} ({conviction}/10, {horizon}, {scan})"
+
+
+def _resolution_line(alert: dict) -> str:
+    ticker = alert.get("ticker", "?")
+    outcome = alert.get("outcome") or "unknown"
+    return f"{ticker} — {outcome}"
+
+
+def _session_number(journal_entries: list[dict], today: datetime.date) -> int:
+    dates = {
+        datetime.datetime.fromisoformat(a["timestamp"]).date()
+        for a in journal_entries
+        if datetime.datetime.fromisoformat(a["timestamp"]).date() <= today
+    }
+    return min(len(dates), config.MIN_PAPER_SESSIONS)
+
+
+def _daily_journal_section(journal_entries: list[dict], today: datetime.date) -> str:
+    stats = journal.compute_stats(journal_entries)
+
+    if stats.get("total_resolved", 0) == 0:
+        open_count = len([a for a in journal_entries if a["status"] == "open"])
+        session_number = _session_number(journal_entries, today)
+        return (
+            f"No alerts have resolved yet. Session {session_number} of "
+            f"{config.MIN_PAPER_SESSIONS}{_paper_suffix()}. "
+            f"{open_count} alerts currently open."
+        )
+
+    return (
+        f"Hit rate {_pct(stats.get('hit_rate'))} │ "
+        f"Adjusted {_pct(stats.get('adj_hit_rate'))} │ "
+        f"Scratch {_pct(stats.get('scratch_rate'))}"
+    )
+
+
+def build_daily_report(journal: list[dict], today: datetime.date) -> str:
+    fired = _fired_today(journal, today)
+    resolved = _resolved_today(journal, today)
+
+    lines = [_daily_header_line(today)]
+
+    alerts_lines = [_DAILY_ALERTS_DIVIDER, _batch_summary_line(fired)]
+    if fired:
+        alerts_lines.extend(_fired_alert_line(a) for a in fired)
+    else:
+        alerts_lines.append("(none)")
+    lines.append("\n".join(alerts_lines))
+
+    resolved_lines = [_DAILY_RESOLVED_DIVIDER]
+    if resolved:
+        resolved_lines.extend(_resolution_line(a) for a in resolved)
+    else:
+        resolved_lines.append("(none)")
+    lines.append("\n".join(resolved_lines))
+
+    journal_lines = [_JOURNAL_DIVIDER, _daily_journal_section(journal, today)]
+    lines.append("\n".join(journal_lines))
+
+    return "\n\n".join(lines)
