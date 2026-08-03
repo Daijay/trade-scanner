@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
   schedule:
-    # Targets: 6:00 AM PT premarket (13:00 UTC PDT / 14:00 UTC PST) and
+    # Targets: 6:00 AM PT premarket (13:00 UTC PDY / 14:00 UTC PST) and
     # 12:30 PM PT preclose (19:30 UTC PDT / 20:30 UTC PST).
     #
     # Fired 45 min early, off the :00/:30 marks: GitHub Actions queues
@@ -20,6 +20,12 @@ on:
     # filters out whichever DST-offset entry doesn't apply.
     - cron: '15 12,13 * * 1-5'
     - cron: '45 18,19 * * 1-5'
+    # Target: 1:15 PM PT (20:15 UTC PDT / 21:15 UTC PST) for daily report.
+    # Fired ~35 min early at off-peak minute to mitigate GitHub Actions queue
+    # delays on popular :15 mark. Matched against config.DAILY_REPORT_TIME_PT
+    # and DAILY_REPORT_TOLERANCE_MINUTES (main.py's within_daily_report_tolerance),
+    # not SCAN_TIMES_PT.
+    - cron: '40 19,20 * * 1-5'
 
 permissions:
   contents: write
@@ -45,14 +51,16 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run scan
+      - name: Run scan or daily report
         # force_run only exists on the workflow_dispatch input schema, so this
         # is false for every schedule-triggered run regardless of the
         # event_name check -- the check is kept explicit anyway so a manual
         # dispatch with force_run left at its default (false) behaves
         # identically to a real scheduled run.
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_run }}" = "true" ]; then
+          if [ "${{ github.event.schedule }}" = "40 19,20 * * 1-5" ]; then
+            python main.py --daily-report
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_run }}" = "true" ]; then
             python main.py --force-run
           else
             python main.py
