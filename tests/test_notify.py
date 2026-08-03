@@ -105,6 +105,107 @@ def test_send_email_smtp_failure_returns_false(monkeypatch):
     assert notify.send_email("body") is False
 
 
+def test_send_daily_report_not_configured_logs_and_skips(monkeypatch, caplog):
+    monkeypatch.delenv("EMAIL_ADDRESS", raising=False)
+    monkeypatch.delenv("EMAIL_APP_PASSWORD", raising=False)
+    with caplog.at_level(logging.INFO):
+        result = notify.send_daily_report("hello")
+    assert result is False
+    assert "not configured" in caplog.text.lower()
+
+
+def test_send_daily_report_success(monkeypatch):
+    monkeypatch.setenv("EMAIL_ADDRESS", "bot@example.com")
+    monkeypatch.setenv("EMAIL_APP_PASSWORD", "app-password")
+
+    calls = []
+    sent_message = []
+
+    class _FakeSMTP:
+        def __init__(self, host, port):
+            calls.append(("connect", host, port))
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def starttls(self):
+            calls.append(("starttls",))
+
+        def login(self, user, password):
+            calls.append(("login", user, password))
+
+        def send_message(self, msg):
+            calls.append(("send", msg["Subject"]))
+            sent_message.append(msg)
+
+    monkeypatch.setattr(notify.smtplib, "SMTP", _FakeSMTP)
+
+    result = notify.send_daily_report("daily report body text")
+    assert result is True
+    assert ("login", "bot@example.com", "app-password") in calls
+    assert any(c[0] == "send" for c in calls)
+    assert len(sent_message) == 1
+    assert sent_message[0]["Subject"] == "Trade Scanner — Daily Report"
+
+
+def test_send_daily_report_smtp_failure_returns_false(monkeypatch):
+    monkeypatch.setenv("EMAIL_ADDRESS", "bot@example.com")
+    monkeypatch.setenv("EMAIL_APP_PASSWORD", "app-password")
+
+    class _FailingSMTP:
+        def __init__(self, host, port):
+            raise OSError("connection refused")
+
+    monkeypatch.setattr(notify.smtplib, "SMTP", _FailingSMTP)
+    assert notify.send_daily_report("body") is False
+
+
+def test_send_daily_report_does_not_call_telegram_or_discord(monkeypatch):
+    monkeypatch.setenv("EMAIL_ADDRESS", "bot@example.com")
+    monkeypatch.setenv("EMAIL_APP_PASSWORD", "app-password")
+
+    telegram_called = []
+    discord_called = []
+
+    def _fake_telegram(msg):
+        telegram_called.append(msg)
+        return True
+
+    def _fake_discord(msg):
+        discord_called.append(msg)
+        return True
+
+    class _FakeSMTP:
+        def __init__(self, host, port):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, user, password):
+            pass
+
+        def send_message(self, msg):
+            pass
+
+    monkeypatch.setattr(notify.smtplib, "SMTP", _FakeSMTP)
+    monkeypatch.setattr(notify, "send_telegram", _fake_telegram)
+    monkeypatch.setattr(notify, "send_discord", _fake_discord)
+
+    notify.send_daily_report("report body")
+    assert telegram_called == []
+    assert discord_called == []
+
+
 def test_send_digest_telegram_failure_does_not_block_email(monkeypatch):
     monkeypatch.setattr(notify, "send_telegram", lambda msg: (_ for _ in ()).throw(RuntimeError("boom")))
     email_calls = []

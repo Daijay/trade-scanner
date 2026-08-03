@@ -76,6 +76,29 @@ def send_email(message: str) -> bool:
         return False
 
 
+def send_daily_report(message: str) -> bool:
+    address = os.getenv("EMAIL_ADDRESS")
+    app_password = os.getenv("EMAIL_APP_PASSWORD")
+    if not address or not app_password:
+        logger.info("Email not configured, skipping.")
+        return False
+
+    try:
+        msg = email.mime.text.MIMEText(message, "plain")
+        msg["Subject"] = "Trade Scanner — Daily Report"
+        msg["From"] = address
+        msg["To"] = address
+
+        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT) as server:
+            server.starttls()
+            server.login(address, app_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        logger.warning("Email delivery failed: %r", e)
+        return False
+
+
 def send_discord(message: str) -> bool:
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook_url:
