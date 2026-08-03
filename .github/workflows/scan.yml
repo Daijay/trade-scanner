@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
   schedule:
-    # Targets: 6:00 AM PT premarket (13:00 UTC PDY / 14:00 UTC PST) and
+    # Targets: 6:00 AM PT premarket (13:00 UTC PDT / 14:00 UTC PST) and
     # 12:30 PM PT preclose (19:30 UTC PDT / 20:30 UTC PST).
     #
     # Fired 45 min early, off the :00/:30 marks: GitHub Actions queues
