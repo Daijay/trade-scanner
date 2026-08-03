@@ -50,6 +50,13 @@ def within_scan_tolerance(now: datetime.datetime) -> bool:
     return False
 
 
+def within_daily_report_tolerance(now: datetime.datetime) -> bool:
+    t = config.DAILY_REPORT_TIME_PT
+    target = now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+    diff_minutes = abs((now - target).total_seconds()) / 60
+    return diff_minutes <= config.DAILY_REPORT_TOLERANCE_MINUTES
+
+
 def previous_scan_time(scan: str, now: datetime.datetime) -> datetime.datetime:
     """Returns the nominal datetime of the scan immediately prior to `scan`
     at `now`, per config.SCAN_TIMES_PT. premarket's previous scan is
@@ -198,6 +205,27 @@ def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = 
     return {"setups": alertable, "digest": message, "scan": scan, "now": now}
 
 
+def run_daily_report(dry_run: bool = False, force_run: bool = False) -> dict:
+    tz = pytz.timezone(config.MARKET_TZ)
+    now = datetime.datetime.now(tz)
+
+    if not dry_run:
+        if not is_weekday(now):
+            logger.info("Not a weekday (%s); exiting daily report.", now.date())
+            return {"report": None}
+        if not market_open_today(now):
+            logger.info("Market not open today (%s); exiting daily report.", now.date())
+            return {"report": None}
+        if not force_run and not within_daily_report_tolerance(now):
+            logger.info("Outside daily report window (%s); exiting.", now.time())
+            return {"report": None}
+
+    alerts = journal.load_journal()
+    report = digest.build_daily_report(alerts, now.date())
+
+    return {"report": report}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Trade scanner pipeline")
     parser.add_argument("--dry-run", action="store_true", help="Skip weekday/market-open guards")
@@ -211,7 +239,19 @@ def main() -> int:
              "testing (e.g. workflow_dispatch); weekday/holiday guards still apply. Never set "
              "this for scheduled runs.",
     )
+    parser.add_argument(
+        "--daily-report", action="store_true",
+        help="Run the once-daily summary email instead of the scan pipeline. Reads journal.json "
+             "only -- does not run data/filter/news/analyst.",
+    )
     args = parser.parse_args()
+
+    if args.daily_report:
+        result = run_daily_report(dry_run=args.dry_run, force_run=args.force_run)
+        if result.get("report"):
+            import notify
+            notify.send_daily_report(result["report"])
+        return 0
 
     result = run_scan(dry_run=args.dry_run, limit=args.limit, force_run=args.force_run)
     if result.get("digest"):

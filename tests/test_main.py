@@ -272,6 +272,108 @@ def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
     assert result["digest"] == "DIGEST"
 
 
+def test_within_daily_report_tolerance_true_at_nominal_time():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 13, 15))
+    assert main.within_daily_report_tolerance(now) is True
+
+
+def test_within_daily_report_tolerance_false_at_premarket_scan_time():
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))  # premarket scan time
+    assert main.within_daily_report_tolerance(now) is False
+
+
+def test_run_daily_report_dry_run_builds_report(monkeypatch):
+    import digest
+
+    alerts = [{"id": "a1", "ticker": "NVDA", "status": "closed"}]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": alerts)
+
+    captured = {}
+
+    def _fake_build_daily_report(loaded_alerts, today):
+        captured["alerts"] = loaded_alerts
+        captured["today"] = today
+        return "REPORT TEXT"
+
+    monkeypatch.setattr(digest, "build_daily_report", _fake_build_daily_report)
+
+    tz = pytz.timezone("America/Vancouver")
+    fixed_now = tz.localize(datetime.datetime(2026, 7, 22, 13, 15))
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    result = main.run_daily_report(dry_run=True)
+
+    assert result == {"report": "REPORT TEXT"}
+    assert captured["alerts"] == alerts
+    assert captured["today"] == fixed_now.date()
+
+
+def test_run_daily_report_respects_tolerance_guard(monkeypatch):
+    tz = pytz.timezone("America/Vancouver")
+    off_hours = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))  # premarket, far from 13:15
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return off_hours
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    def _fail(*a, **k):
+        raise AssertionError("should not load journal when outside daily report tolerance")
+
+    monkeypatch.setattr(journal, "load_journal", _fail)
+
+    result = main.run_daily_report(dry_run=False)
+    assert result == {"report": None}
+
+
+def test_run_daily_report_does_not_touch_scan_pipeline(monkeypatch):
+    import digest
+
+    calls = []
+
+    monkeypatch.setattr(main.data, "build_universe", lambda: calls.append("build_universe"))
+    monkeypatch.setattr(main.filter_mod, "run_filter", lambda frames: calls.append("run_filter"))
+    monkeypatch.setattr(main.analyst, "analyze_survivors", lambda s, n: calls.append("analyze_survivors"))
+    monkeypatch.setattr(main.news, "attach_news", lambda s, n: calls.append("attach_news"))
+
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": [])
+    monkeypatch.setattr(digest, "build_daily_report", lambda alerts, today: "REPORT")
+
+    result = main.run_daily_report(dry_run=True)
+
+    assert calls == []
+    assert result == {"report": "REPORT"}
+
+
+def test_main_daily_report_flag_calls_notify_send_daily_report(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(main, "run_daily_report", lambda dry_run, force_run: {"report": "REPORT TEXT"})
+
+    captured = {}
+    monkeypatch.setattr(notify, "send_daily_report", lambda msg: captured.update(sent=msg))
+
+    def _fail_send_digest(*a, **k):
+        raise AssertionError("should not call send_digest for --daily-report")
+
+    monkeypatch.setattr(notify, "send_digest", _fail_send_digest)
+
+    monkeypatch.setattr(sys, "argv", ["main.py", "--daily-report", "--dry-run"])
+    main.main()
+
+    assert captured["sent"] == "REPORT TEXT"
+
+
 def test_main_passes_run_scan_digest_to_notify(monkeypatch):
     """Regression test: main() must forward run_scan()'s real digest output
     to notify.send_digest, not a stub or hardcoded placeholder."""

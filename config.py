@@ -72,6 +72,14 @@ SCAN_TIMES_PT = {
 }
 SCAN_TOLERANCE_MINUTES = 90
 
+# Daily summary report: separate from SCAN_TIMES_PT since that dict drives the
+# scan pipeline's premarket/preclose labeling logic (_current_scan_label,
+# previous_scan_time), which must not be touched by this feature.
+# 1:15 PM PT = 15 min after the 1:00 PM market close, giving the preclose scan's
+# alerts and same-day resolutions time to settle.
+DAILY_REPORT_TIME_PT = datetime.time(13, 15)
+DAILY_REPORT_TOLERANCE_MINUTES = 90
+
 # Full-day NYSE closures. Must be updated yearly (see nyse.com holiday calendar).
 MARKET_HOLIDAYS = [
     "2026-01-01",  # New Year's Day
