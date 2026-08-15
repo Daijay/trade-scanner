@@ -310,6 +310,62 @@ def test_run_scan_wires_market_context_into_build_digest(monkeypatch):
     assert result["digest"] == "DIGEST"
 
 
+def test_run_scan_wires_baseline_filtered_overall_stats_into_build_digest(monkeypatch):
+    import journal as journal_mod
+    import filter as filter_mod
+    import news
+    import analyst
+    import digest
+
+    monkeypatch.setattr(config, "STATS_BASELINE_DATE", datetime.date(2026, 7, 15))
+
+    alerts = [
+        # before the baseline -- counts toward the top-level (session) stats only
+        {"id": "a1", "timestamp": "2026-07-01T06:00:00", "scan": "premarket",
+         "ticker": "OLD", "status": "closed", "outcome": "loss", "conviction": 6,
+         "bias": "long", "horizon": "swing", "rr": 2.0},
+        # on/after the baseline -- counts toward both
+        {"id": "a2", "timestamp": "2026-07-20T06:00:00", "scan": "premarket",
+         "ticker": "NEW", "status": "closed", "outcome": "win", "conviction": 8,
+         "bias": "long", "horizon": "swing", "rr": 2.0},
+    ]
+    monkeypatch.setattr(journal_mod, "load_journal", lambda path="journal.json": list(alerts))
+    monkeypatch.setattr(journal_mod, "save_journal", lambda a, path="journal.json": None)
+    monkeypatch.setattr(journal_mod, "log_alerts", lambda setups, scan, now: [])
+    monkeypatch.setattr(journal_mod, "should_compute_stats", lambda a: False)
+
+    monkeypatch.setattr(main.data, "build_universe", lambda: ["NVDA"])
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {"NVDA": {}})
+    monkeypatch.setattr(
+        filter_mod, "run_filter",
+        lambda frames: ([{"symbol": "NVDA", "analysis": {"alignment": "long"}}], []),
+    )
+    monkeypatch.setattr(news, "attach_news", lambda survivors, now: survivors)
+    monkeypatch.setattr(
+        analyst, "analyze_survivors",
+        lambda survivors, now: [{"symbol": "NVDA", "conviction": 8}],
+    )
+    monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
+    monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
+    monkeypatch.setattr(main.data, "fetch_market_context", lambda: "")
+
+    captured = {}
+
+    def _fake_build_digest(scan, now, alertable, scan_counts, stats, market_context=""):
+        captured["stats"] = stats
+        return "DIGEST"
+
+    monkeypatch.setattr(digest, "build_digest", _fake_build_digest)
+
+    main.run_scan(dry_run=True)
+
+    overall = captured["stats"]["overall"]
+    # baseline-filtered to just NEW (1 win, 0 losses) -> hit_rate 1.0
+    assert overall["total_resolved"] == 1
+    assert overall["wins"] == 1
+    assert overall["hit_rate"] == 1.0
+
+
 def test_within_daily_report_tolerance_true_at_nominal_time():
     tz = pytz.timezone("America/Vancouver")
     now = tz.localize(datetime.datetime(2026, 7, 22, 13, 15))

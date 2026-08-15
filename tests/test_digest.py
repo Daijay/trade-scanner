@@ -127,6 +127,32 @@ def test_build_digest_low_conviction_yellow():
     assert "🟡" in msg
 
 
+def test_build_digest_shows_session_and_overall_lines():
+    stats = _stats()
+    stats["overall"] = _stats(total_resolved=4, wins=3, losses=1, scratches=0)
+
+    msg = digest.build_digest(
+        "premarket", _NOW, [_setup()], {"scanned": 100, "filtered": 10, "alerts": 1}, stats,
+    )
+
+    idx_session = msg.index("Session Hit rate")
+    idx_overall = msg.index("Overall Hit rate")
+    assert idx_session < idx_overall
+    # session line reflects the top-level stats (6 wins / 3 losses -> 67%)
+    assert "67%" in msg[idx_session:idx_overall]
+    # overall line reflects stats["overall"] (3 wins / 1 loss -> 75%)
+    assert "75%" in msg[idx_overall:]
+
+
+def test_build_digest_omits_overall_line_when_not_supplied():
+    msg = digest.build_digest(
+        "premarket", _NOW, [_setup()], {"scanned": 100, "filtered": 10, "alerts": 1}, _stats(),
+    )
+
+    assert "Session Hit rate" in msg
+    assert "Overall" not in msg
+
+
 def test_build_digest_paper_mode_suffix(monkeypatch):
     monkeypatch.setattr(config, "PAPER_MODE", True)
     msg = digest.build_digest("premarket", _NOW, [], {"scanned": 1, "filtered": 0, "alerts": 0}, _stats())
@@ -276,6 +302,32 @@ def test_daily_report_normal_stats_when_history_exists():
     report = digest.build_daily_report(journal, _TODAY)
     assert "Hit rate" in report
     assert "67%" in report  # 2 wins / 3 total
+
+
+def test_daily_report_shows_session_and_overall_lines_baseline_filtered(monkeypatch):
+    monkeypatch.setattr(config, "STATS_BASELINE_DATE", datetime.date(2026, 7, 15))
+    journal = [
+        # before the baseline -- counts toward Session, excluded from Overall
+        _alert(ticker="OLD1", timestamp="2026-07-01T06:00:00", status="closed",
+               resolved_at="2026-07-01T14:00:00", outcome="loss"),
+        _alert(ticker="OLD2", timestamp="2026-07-01T06:00:00", status="closed",
+               resolved_at="2026-07-01T14:00:00", outcome="loss"),
+        # on/after the baseline -- counts toward both
+        _alert(ticker="NEW1", timestamp="2026-07-20T06:00:00", status="closed",
+               resolved_at="2026-07-20T14:00:00", outcome="win"),
+        _alert(ticker="NEW2", timestamp="2026-07-20T06:00:00", status="closed",
+               resolved_at="2026-07-20T14:00:00", outcome="win"),
+    ]
+
+    report = digest.build_daily_report(journal, _TODAY)
+
+    idx_session = report.index("Session Hit rate")
+    idx_overall = report.index("Overall Hit rate")
+    assert idx_session < idx_overall
+    # session: 2 wins / 2 losses across all 4 -> 50%
+    assert "50%" in report[idx_session:idx_overall]
+    # overall: 2 wins / 0 losses, baseline-filtered to NEW1/NEW2 only -> 100%
+    assert "100%" in report[idx_overall:]
 
 
 def test_daily_report_session_number_counts_distinct_dates():

@@ -156,10 +156,17 @@ def _journal_section(stats: dict | None) -> str:
 
     if stats is not None:
         lines.append(
-            f"Hit rate {_pct(stats.get('hit_rate'))} │ "
+            f"Session Hit rate {_pct(stats.get('hit_rate'))} │ "
             f"Adjusted {_pct(stats.get('adj_hit_rate'))} │ "
             f"Scratch {_pct(stats.get('scratch_rate'))}"
         )
+        overall = stats.get("overall")
+        if overall:
+            lines.append(
+                f"Overall Hit rate {_pct(overall.get('hit_rate'))} │ "
+                f"Adjusted {_pct(overall.get('adj_hit_rate'))} │ "
+                f"Scratch {_pct(overall.get('scratch_rate'))}"
+            )
 
     return "\n".join(lines)
 
@@ -364,11 +371,20 @@ def _daily_journal_section(journal_entries: list[dict], today: datetime.date) ->
             f"{open_count} alerts currently open."
         )
 
-    return (
-        f"Hit rate {_pct(stats.get('hit_rate'))} │ "
+    baseline_entries = [
+        a for a in journal_entries
+        if datetime.datetime.fromisoformat(a["timestamp"]).date() >= config.STATS_BASELINE_DATE
+    ]
+    overall_stats = journal.compute_stats(baseline_entries)
+
+    return "\n".join([
+        f"Session Hit rate {_pct(stats.get('hit_rate'))} │ "
         f"Adjusted {_pct(stats.get('adj_hit_rate'))} │ "
-        f"Scratch {_pct(stats.get('scratch_rate'))}"
-    )
+        f"Scratch {_pct(stats.get('scratch_rate'))}",
+        f"Overall Hit rate {_pct(overall_stats.get('hit_rate'))} │ "
+        f"Adjusted {_pct(overall_stats.get('adj_hit_rate'))} │ "
+        f"Scratch {_pct(overall_stats.get('scratch_rate'))}",
+    ])
 
 
 def build_daily_report(journal: list[dict], today: datetime.date) -> str:

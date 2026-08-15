@@ -217,6 +217,12 @@ def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = 
         logger.info("Stats crossed a %d-resolved-alert boundary; requesting summary...", config.STATS_EVERY)
         summary_text = journal.summarize_stats(stats)
 
+    baseline_alerts = [
+        a for a in alerts
+        if datetime.datetime.fromisoformat(a["timestamp"]).date() >= config.STATS_BASELINE_DATE
+    ]
+    stats["overall"] = journal.compute_stats(baseline_alerts)
+
     if alertable:
         market_context = data.fetch_market_context()
         message = digest.build_digest(scan, now, alertable, scan_counts, stats, market_context=market_context)

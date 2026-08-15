@@ -54,6 +54,12 @@ STATS_EVERY = 30                # resolved alerts per review
 PAPER_MODE = True               # flip only after 30 reviewed sessions
 MIN_PAPER_SESSIONS = 30
 
+# Date journal.json was deduplicated after the Aug 7-13 duplicate-scan-run
+# incident (see docs/superpowers/plans/2026-08-14-fix-duplicate-scan-runs.md).
+# The digest's "Overall" stats line is scoped to alerts fired on or after
+# this date, so it tracks a clean baseline unaffected by the corrupted period.
+STATS_BASELINE_DATE = datetime.date(2026, 8, 14)
+
 # -- Display -----------------------------------------------------------------
 SCAN_ANIMATION = True           # auto-disabled when CI env var present
 TICKER_DELAY = 0.2              # seconds per ticker
