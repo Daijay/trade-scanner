@@ -214,6 +214,44 @@ def test_run_scan_force_run_reaches_pipeline_outside_tolerance(monkeypatch):
     assert result["digest"] == "DIGEST"
 
 
+def test_run_scan_force_run_bypasses_already_ran_guard(monkeypatch):
+    import journal as journal_mod
+    import filter as filter_mod
+    import news
+    import analyst
+    import digest
+
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))  # Wednesday premarket
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    existing = [{"id": "a1", "timestamp": "2026-07-22T05:15:00-07:00",
+                 "scan": "premarket", "ticker": "NVDA", "status": "open"}]
+    monkeypatch.setattr(journal_mod, "load_journal", lambda path="journal.json": list(existing))
+    monkeypatch.setattr(journal_mod, "save_journal", lambda alerts, path="journal.json": None)
+    monkeypatch.setattr(journal_mod, "log_alerts", lambda setups, scan, now: [])
+    monkeypatch.setattr(journal_mod, "compute_stats", lambda alerts: {})
+    monkeypatch.setattr(journal_mod, "should_compute_stats", lambda alerts: False)
+
+    monkeypatch.setattr(main.data, "fetch_ohlcv", lambda tickers, interval: {})
+    monkeypatch.setattr(main.data, "build_universe", lambda: [])
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {})
+    monkeypatch.setattr(filter_mod, "run_filter", lambda frames: ([], []))
+    monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
+    monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
+    monkeypatch.setattr(main.data, "fetch_market_context", lambda: "")
+    monkeypatch.setattr(digest, "build_no_setup_digest", lambda *a, **k: "NO SETUP DIGEST")
+
+    result = main.run_scan(dry_run=False, force_run=True)
+    assert result["digest"] == "NO SETUP DIGEST"
+
+
 def test_main_force_run_flag_parsed(monkeypatch):
     import sys
 

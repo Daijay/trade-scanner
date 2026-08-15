@@ -64,3 +64,17 @@ def test_dedupe_prefers_earliest_resolved_among_multiple_closed_duplicates():
     kept, dropped = dedupe_journal.dedupe_alerts([earlier_logged_later_resolved, later_logged_earlier_resolved])
     assert kept == [later_logged_earlier_resolved]
     assert dropped == [earlier_logged_later_resolved]
+
+
+def test_dedupe_prefers_resolved_closed_record_over_scratch_duplicate():
+    scratch = _alert(
+        id="a1", timestamp="2026-08-07T06:38:18-07:00",
+        status="closed", outcome="scratch", resolved_at=None,
+    )
+    resolved_win = _alert(
+        id="a2", timestamp="2026-08-07T13:23:25-07:00",
+        status="closed", outcome="win", resolved_at="2026-08-07T14:00:00-07:00",
+    )
+    kept, dropped = dedupe_journal.dedupe_alerts([scratch, resolved_win])
+    assert kept == [resolved_win]
+    assert dropped == [scratch]

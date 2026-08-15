@@ -117,7 +117,13 @@ def _scan_already_ran_today(scan: str, now: datetime.datetime) -> bool:
     on today's date. Guards against GitHub Actions firing the same scan
     slot's cron trigger more than once within config.SCAN_TOLERANCE_MINUTES
     (both DST-offset cron lines can land inside the tolerance window on the
-    same day -- see the Aug 7 duplicate-alert incident)."""
+    same day -- see the Aug 7 duplicate-alert incident).
+
+    Known limitation: a scan that produces zero setups writes no journal
+    entry, so this guard cannot detect it -- a duplicate cron firing on a
+    quiet day still re-runs the full pipeline (wasted API cost, a second
+    no-setup digest), though journal.log_alerts's own dedup still prevents
+    any duplicate alert data from resulting."""
     today = now.date()
     for alert in journal.load_journal():
         if alert["scan"] != scan:
@@ -146,7 +152,7 @@ def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = 
 
     scan = _current_scan_label(now)
 
-    if _scan_already_ran_today(scan, now):
+    if not force_run and _scan_already_ran_today(scan, now):
         logger.info("%s scan already logged today (%s); skipping duplicate run.", scan, now.date())
         return {"setups": [], "digest": None}
 
