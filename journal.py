@@ -41,10 +41,26 @@ def log_alerts(setups: list[dict], scan: str, now: datetime.datetime) -> list[di
     """Build one alert record per setup, append to the persisted journal,
     and return the newly created records. Caller is responsible for
     filtering setups to conviction >= config.MIN_CONVICTION and capping at
-    config.MAX_ALERTS before calling this."""
+    config.MAX_ALERTS before calling this.
+
+    Skips any setup whose (ticker, scan) combination is already logged for
+    today's date -- defense-in-depth against duplicate pipeline runs (the
+    primary guard lives in main.py::run_scan)."""
+    existing = load_journal()
+    today = now.date()
+    already_logged = {
+        (a["ticker"], a["scan"])
+        for a in existing
+        if datetime.datetime.fromisoformat(a["timestamp"]).date() == today
+    }
+
     new_records = []
     for setup in setups:
         ticker = setup["ticker"]
+        if (ticker, scan) in already_logged:
+            logger.info("Skipping duplicate log_alerts entry for %s/%s on %s", ticker, scan, today)
+            continue
+
         record = {
             "id": _alert_id(now, ticker),
             "timestamp": now.isoformat(),
@@ -66,9 +82,8 @@ def log_alerts(setups: list[dict], scan: str, now: datetime.datetime) -> list[di
         }
         new_records.append(record)
 
-    journal = load_journal()
-    journal.extend(new_records)
-    save_journal(journal)
+    existing.extend(new_records)
+    save_journal(existing)
 
     return new_records
 

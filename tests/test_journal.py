@@ -85,6 +85,63 @@ def test_log_alerts_builds_records(monkeypatch):
     assert saved["alerts"] == result
 
 
+def test_log_alerts_skips_ticker_already_logged_same_scan_same_day(monkeypatch):
+    existing = [_alert(
+        id="2026-07-22T06:00-NVDA", timestamp="2026-07-22T06:00:00",
+        scan="premarket", ticker="NVDA",
+    )]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": list(existing))
+    saved = {}
+    monkeypatch.setattr(journal, "save_journal", lambda alerts, path="journal.json": saved.setdefault("alerts", alerts))
+
+    setups = [
+        {"ticker": "NVDA", "bias": "short", "conviction": 6, "entry": 90.0,
+         "stop": 95.0, "target": 80.0, "rr": 2.0, "horizon": "intraday"},
+        {"ticker": "AMD", "bias": "long", "conviction": 7, "entry": 50.0,
+         "stop": 47.0, "target": 56.0, "rr": 2.0, "horizon": "swing"},
+    ]
+    now = datetime.datetime(2026, 7, 22, 6, 38)  # later, same day, same scan slot
+
+    result = journal.log_alerts(setups, "premarket", now)
+
+    assert [r["ticker"] for r in result] == ["AMD"]
+    assert len(saved["alerts"]) == 2  # original NVDA record + new AMD, no duplicate NVDA
+
+
+def test_log_alerts_allows_same_ticker_different_scan_same_day(monkeypatch):
+    existing = [_alert(
+        id="2026-07-22T06:00-NVDA", timestamp="2026-07-22T06:00:00",
+        scan="premarket", ticker="NVDA",
+    )]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": list(existing))
+    monkeypatch.setattr(journal, "save_journal", lambda alerts, path="journal.json": None)
+
+    setups = [{"ticker": "NVDA", "bias": "long", "conviction": 8, "entry": 100.0,
+               "stop": 95.0, "target": 110.0, "rr": 2.0, "horizon": "swing"}]
+    now = datetime.datetime(2026, 7, 22, 12, 30)  # same day, preclose slot
+
+    result = journal.log_alerts(setups, "preclose", now)
+
+    assert [r["ticker"] for r in result] == ["NVDA"]
+
+
+def test_log_alerts_allows_same_ticker_scan_different_day(monkeypatch):
+    existing = [_alert(
+        id="2026-07-21T06:00-NVDA", timestamp="2026-07-21T06:00:00",
+        scan="premarket", ticker="NVDA",
+    )]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": list(existing))
+    monkeypatch.setattr(journal, "save_journal", lambda alerts, path="journal.json": None)
+
+    setups = [{"ticker": "NVDA", "bias": "long", "conviction": 8, "entry": 100.0,
+               "stop": 95.0, "target": 110.0, "rr": 2.0, "horizon": "swing"}]
+    now = datetime.datetime(2026, 7, 22, 6, 0)  # next day, same scan slot
+
+    result = journal.log_alerts(setups, "premarket", now)
+
+    assert [r["ticker"] for r in result] == ["NVDA"]
+
+
 # -- resolve_alert --------------------------------------------------------
 
 def test_resolve_alert_win_long():
