@@ -50,3 +50,17 @@ def test_dedupe_does_not_touch_different_ticker_scan_or_day():
     kept, dropped = dedupe_journal.dedupe_alerts([a, b, c, d])
     assert kept == [a, b, c, d]
     assert dropped == []
+
+
+def test_dedupe_prefers_earliest_resolved_among_multiple_closed_duplicates():
+    earlier_logged_later_resolved = _alert(
+        id="a1", timestamp="2026-08-07T06:38:18-07:00",
+        status="closed", outcome="win", resolved_at="2026-08-07T14:00:00-07:00",
+    )
+    later_logged_earlier_resolved = _alert(
+        id="a2", timestamp="2026-08-07T13:23:25-07:00",
+        status="closed", outcome="win", resolved_at="2026-08-07T10:00:00-07:00",
+    )
+    kept, dropped = dedupe_journal.dedupe_alerts([earlier_logged_later_resolved, later_logged_earlier_resolved])
+    assert kept == [later_logged_earlier_resolved]
+    assert dropped == [earlier_logged_later_resolved]

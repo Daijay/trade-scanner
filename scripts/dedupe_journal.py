@@ -23,8 +23,9 @@ def _group_key(alert: dict) -> tuple[str, str, str]:
 
 def _pick_canonical(group: list[dict]) -> dict:
     closed = [a for a in group if a["status"] == "closed"]
-    pool = closed if closed else group
-    return min(pool, key=lambda a: a["timestamp"])
+    if closed:
+        return min(closed, key=lambda a: a["resolved_at"])
+    return min(group, key=lambda a: a["timestamp"])
 
 
 def dedupe_alerts(alerts: list[dict]) -> tuple[list[dict], list[dict]]:
