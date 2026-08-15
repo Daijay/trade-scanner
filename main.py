@@ -112,6 +112,21 @@ def _current_scan_label(now: datetime.datetime) -> str:
     return best[0]
 
 
+def _scan_already_ran_today(scan: str, now: datetime.datetime) -> bool:
+    """True if the journal already has an entry logged for this scan label
+    on today's date. Guards against GitHub Actions firing the same scan
+    slot's cron trigger more than once within config.SCAN_TOLERANCE_MINUTES
+    (both DST-offset cron lines can land inside the tolerance window on the
+    same day -- see the Aug 7 duplicate-alert incident)."""
+    today = now.date()
+    for alert in journal.load_journal():
+        if alert["scan"] != scan:
+            continue
+        if datetime.datetime.fromisoformat(alert["timestamp"]).date() == today:
+            return True
+    return False
+
+
 def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = False) -> dict:
     tz = pytz.timezone(config.MARKET_TZ)
     now = datetime.datetime.now(tz)
@@ -130,6 +145,10 @@ def run_scan(dry_run: bool = False, limit: int | None = None, force_run: bool = 
             logger.info("force_run set: bypassing within_scan_tolerance (weekday/holiday guards still apply).")
 
     scan = _current_scan_label(now)
+
+    if _scan_already_ran_today(scan, now):
+        logger.info("%s scan already logged today (%s); skipping duplicate run.", scan, now.date())
+        return {"setups": [], "digest": None}
 
     logger.info("Resolving outcomes of previously open alerts...")
     alerts = resolve_previous_alerts(now, scan)

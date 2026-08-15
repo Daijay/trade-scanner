@@ -391,3 +391,75 @@ def test_main_passes_run_scan_digest_to_notify(monkeypatch):
     main.main()
 
     assert captured["sent"] == sentinel_digest
+
+
+def test_run_scan_skips_when_scan_already_logged_today(monkeypatch):
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))  # Wednesday, premarket time
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    existing = [{
+        "id": "2026-07-22T05:15-NVDA",
+        "timestamp": "2026-07-22T05:15:00-07:00",
+        "scan": "premarket",
+        "ticker": "NVDA",
+        "status": "open",
+    }]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": existing)
+
+    def _fail(*a, **k):
+        raise AssertionError("should not reach universe build when this scan already ran today")
+
+    monkeypatch.setattr(main.data, "build_universe", _fail)
+
+    result = main.run_scan(dry_run=False)
+    assert result == {"setups": [], "digest": None}
+
+
+def test_run_scan_runs_when_scan_not_yet_logged_today(monkeypatch):
+    import filter as filter_mod
+    import news
+    import analyst
+    import digest
+
+    tz = pytz.timezone("America/Vancouver")
+    now = tz.localize(datetime.datetime(2026, 7, 22, 6, 0))  # Wednesday, premarket time
+
+    class _FakeDatetime(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now
+
+    monkeypatch.setattr(main.datetime, "datetime", _FakeDatetime)
+
+    # A preclose entry from the SAME day must not block today's premarket run,
+    # and a premarket entry from a DIFFERENT day must not either.
+    existing = [
+        {"id": "a1", "timestamp": "2026-07-22T12:30:00-07:00", "scan": "preclose",
+         "ticker": "NVDA", "status": "open"},
+        {"id": "a2", "timestamp": "2026-07-21T06:00:00-07:00", "scan": "premarket",
+         "ticker": "AMD", "status": "open"},
+    ]
+    monkeypatch.setattr(journal, "load_journal", lambda path="journal.json": list(existing))
+    monkeypatch.setattr(journal, "save_journal", lambda alerts, path="journal.json": None)
+    monkeypatch.setattr(main, "resolve_previous_alerts", lambda now, scan: list(existing))
+    monkeypatch.setattr(journal, "log_alerts", lambda setups, scan, now: [])
+    monkeypatch.setattr(journal, "compute_stats", lambda alerts: {})
+    monkeypatch.setattr(journal, "should_compute_stats", lambda alerts: False)
+
+    monkeypatch.setattr(main.data, "build_universe", lambda: [])
+    monkeypatch.setattr(main.data, "fetch_all_timeframes", lambda symbols: {})
+    monkeypatch.setattr(filter_mod, "run_filter", lambda frames: ([], []))
+    monkeypatch.setattr(main.display, "flash_ticker", lambda *a, **k: None)
+    monkeypatch.setattr(main.display, "print_survivor_table", lambda *a, **k: None)
+    monkeypatch.setattr(main.data, "fetch_market_context", lambda: "")
+    monkeypatch.setattr(digest, "build_no_setup_digest", lambda *a, **k: "NO SETUP DIGEST")
+
+    result = main.run_scan(dry_run=False)
+    assert result["digest"] == "NO SETUP DIGEST"
