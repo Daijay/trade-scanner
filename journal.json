@@ -10657,5 +10657,24 @@
     "resolved_at": null,
     "outcome": null,
     "bars_open": 0
+  },
+  {
+    "id": "2026-08-18T06:07-MNST",
+    "timestamp": "2026-08-18T06:07:16.787399-07:00",
+    "scan": "premarket",
+    "ticker": "MNST",
+    "bias": "short",
+    "conviction": 3,
+    "entry": 45.52,
+    "stop": 45.75,
+    "target": 45.06,
+    "rr": 2.0,
+    "horizon": "intraday",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
   }
 ]
