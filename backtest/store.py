@@ -53,6 +53,24 @@ def _timeframe_dir(root: Path, timeframe: str) -> Path:
     return Path(root) / sub
 
 
+#: Parsed frames, keyed by absolute path. The store is *allowed* to hold full
+#: history -- only a ``PointInTimeView`` must not -- so caching here preserves
+#: the leakage guarantee while removing the dominant cost of a replay: without
+#: it a single scan slot re-reads and re-parses 882 parquet files, and an
+#: 8-month run spends hours in pandas I/O re-reading identical bytes.
+#:
+#: ``_read_raw`` still returns a *copy*, so its original contract holds: callers
+#: may mutate what they get back without corrupting later reads. Only the parse
+#: is shared, which is the expensive half -- a copy costs microseconds against
+#: milliseconds to decode parquet.
+_FRAME_CACHE: dict[tuple[str], pd.DataFrame] = {}
+
+
+def clear_frame_cache() -> None:
+    """Drop the parsed-frame cache. For tests that rewrite cache files on disk."""
+    _FRAME_CACHE.clear()
+
+
 def _read_raw(root: Path, ticker: str, timeframe: str) -> pd.DataFrame:
     """Read one ticker's **full, untruncated** history for a stored timeframe.
 
@@ -65,6 +83,10 @@ def _read_raw(root: Path, ticker: str, timeframe: str) -> pd.DataFrame:
     and ``ValueError`` for an unknown timeframe.
     """
     path = _timeframe_dir(root, timeframe) / f"{ticker}.parquet"
+    key = (str(path),)
+    hit = _FRAME_CACHE.get(key)
+    if hit is not None:
+        return hit.copy()
     if not path.exists():
         raise FileNotFoundError(f"no {timeframe} bars cached for {ticker}: {path}")
     df = pd.read_parquet(path)
@@ -74,7 +96,8 @@ def _read_raw(root: Path, ticker: str, timeframe: str) -> pd.DataFrame:
         raise ValueError(f"{path.name}: index is tz-aware; the cache is US/Eastern wall clock")
     df = df.sort_index()
     df.index.name = "timestamp"
-    return df
+    _FRAME_CACHE[key] = df
+    return df.copy()
 
 
 class BarStore:
