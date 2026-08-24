@@ -236,6 +236,95 @@ def test_analyze_survivors_normalizes_bare_string_timeframes(monkeypatch):
     assert tfs["daily"] == {"trend": "flat"}
 
 
+def test_call_claude_sends_cached_system_prompt_matching_prior_content(monkeypatch):
+    """Verifies the API call structure: static instructions go in a cached
+    system block, the per-call payload goes in the user message, and
+    reassembling system + user reproduces byte-for-byte the single-prompt
+    text this codebase sent before caching was introduced (i.e. prompt
+    content is unchanged, only how it's split across the request)."""
+    survivors = [_survivor("AAPL")]
+    response_text = json.dumps([_setup_json("AAPL")])
+    fake_client = _FakeClient([response_text])
+    monkeypatch.setattr(analyst.anthropic, "Anthropic", lambda: fake_client)
+
+    now = datetime.datetime(2026, 7, 21, tzinfo=datetime.timezone.utc)
+    analyst.analyze_survivors(survivors, now)
+
+    kwargs = fake_client.messages.calls[0]
+    system_blocks = kwargs["system"]
+    assert len(system_blocks) == 1
+    assert system_blocks[0]["type"] == "text"
+    assert system_blocks[0]["cache_control"] == {"type": "ephemeral"}
+
+    messages = kwargs["messages"]
+    assert len(messages) == 1
+    assert messages[0]["role"] == "user"
+
+    payloads = [analyst._build_payload(s) for s in survivors]
+    reassembled = system_blocks[0]["text"] + "\n\n" + messages[0]["content"]
+    forbidden = ", ".join(analyst._FORBIDDEN_WORDS)
+    expected = f"""You are a trading analyst. You will be given a JSON array of compact
+per-symbol technical + news payloads for symbols that already passed a hard
+technical filter. For EACH symbol, produce a trade setup.
+
+Respond with ONLY a JSON array, no prose, no markdown code fences, no
+commentary before or after. The array must contain one object per input
+symbol, matching this exact schema:
+
+{{"ticker": str, "bias": "long"|"short", "conviction": int (0-10),
+ "entry": float, "stop": float, "target": float, "rr": float,
+ "horizon": "swing"|"intraday",
+ "timeframes": {{"30m": {{"trend": "up"|"down"|"flat"}},
+                 "4h": {{"trend": "up"|"down"|"flat"}},
+                 "daily": {{"trend": "up"|"down"|"flat"}}}},
+ "news_read": str, "reasoning": str}}
+
+Each of "30m"/"4h"/"daily" MUST be an object with a "trend" key as shown --
+never a bare string.
+
+Rules:
+- Stops MUST be derived from ATR (atr14 in the payload), not arbitrary round numbers.
+- Each symbol's "horizon" is already computed for you in the input payload
+  (from its alignment score) -- use that exact value, do not decide it yourself.
+- If a setup's reward:risk (rr = (target-entry)/(entry-stop) in absolute
+  terms) is below {config.MIN_RR}, you must still return the object but with
+  conviction: 0.
+- Conviction is a RELATIVE RANKING WITHIN THIS BATCH ONLY -- it is not a
+  probability of profit, not a guarantee, not a forecast.
+- If a symbol has no clean setup, return it with conviction: 0 rather than
+  inventing one.
+- In "reasoning", never use any of these words or phrases: {forbidden}.
+- bars_since_flip / min_bars_since_flip fields are informational context only.
+
+Input symbols:
+{json.dumps(payloads)}
+"""
+    assert reassembled == expected
+
+
+def test_system_prompt_stable_across_retry_and_batches(monkeypatch):
+    """The cached system block must be identical across the retry call
+    within a batch (only the user message should carry the strict-mode
+    nudge) and across batches with different survivor payloads -- that
+    stability is what makes prompt caching actually hit."""
+    survivors = [_survivor("AAPL"), _survivor("MSFT")]
+    good = json.dumps([_setup_json("AAPL"), _setup_json("MSFT")])
+    fake_client = _FakeClient(["not json", good])
+    monkeypatch.setattr(analyst.anthropic, "Anthropic", lambda: fake_client)
+
+    now = datetime.datetime(2026, 7, 21, tzinfo=datetime.timezone.utc)
+    analyst.analyze_survivors(survivors, now)
+
+    assert fake_client.messages.call_count == 2
+    first_call, second_call = fake_client.messages.calls
+    assert first_call["system"] == second_call["system"]
+    assert first_call["system"][0]["cache_control"] == {"type": "ephemeral"}
+    # Only the user message differs (retry nudge appended).
+    assert first_call["messages"][0]["content"] != second_call["messages"][0]["content"]
+    assert "Your last response was not valid JSON" in second_call["messages"][0]["content"]
+    assert "Your last response was not valid JSON" not in first_call["messages"][0]["content"]
+
+
 def test_analyze_survivors_empty_list_no_api_call(monkeypatch):
     called = {"n": 0}
 

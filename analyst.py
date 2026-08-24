@@ -100,9 +100,12 @@ def _build_payload(survivor: dict) -> dict:
     }
 
 
-def _build_prompt(payloads: list[dict], strict: bool = False) -> str:
+def _build_system_prompt() -> str:
+    """Static instructions, identical across every batch call (and across
+    scans). Split out from the per-call payload so it can be sent as a
+    cached system block -- see _call_claude."""
     forbidden = ", ".join(_FORBIDDEN_WORDS)
-    prompt = f"""You are a trading analyst. You will be given a JSON array of compact
+    return f"""You are a trading analyst. You will be given a JSON array of compact
 per-symbol technical + news payloads for symbols that already passed a hard
 technical filter. For EACH symbol, produce a trade setup.
 
@@ -133,17 +136,21 @@ Rules:
 - If a symbol has no clean setup, return it with conviction: 0 rather than
   inventing one.
 - In "reasoning", never use any of these words or phrases: {forbidden}.
-- bars_since_flip / min_bars_since_flip fields are informational context only.
+- bars_since_flip / min_bars_since_flip fields are informational context only."""
 
-Input symbols:
+
+def _build_user_content(payloads: list[dict], strict: bool = False) -> str:
+    """Per-call content: just the batch's payload data (and, on retry, the
+    strict-mode nudge). Everything else lives in the cached system prompt."""
+    content = f"""Input symbols:
 {json.dumps(payloads)}
 """
     if strict:
-        prompt += (
+        content += (
             "\n\nYour last response was not valid JSON / not a JSON array. "
             "Return ONLY a JSON array, no other text."
         )
-    return prompt
+    return content
 
 
 def _strip_fences(text: str) -> str:
@@ -215,13 +222,20 @@ def _extract_text(response) -> str | None:
 
 
 def _call_claude(client, payloads: list[dict], strict: bool = False) -> str | None:
-    prompt = _build_prompt(payloads, strict=strict)
+    user_content = _build_user_content(payloads, strict=strict)
     try:
         response = client.messages.create(
             model=config.MODEL,
             max_tokens=config.MAX_TOKENS,
             thinking={"type": "disabled"},
-            messages=[{"role": "user", "content": prompt}],
+            system=[
+                {
+                    "type": "text",
+                    "text": _build_system_prompt(),
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": user_content}],
         )
         return _extract_text(response)
     except Exception as e:
