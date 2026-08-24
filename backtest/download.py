@@ -242,16 +242,35 @@ def _is_complete(
 ) -> bool:
     """Resume predicate: has this ticker/frame already been fully fetched?
 
-    Either the cached file spans the requested range, or a previous run
-    recorded it as fetched for exactly this range (which covers tickers whose
-    history legitimately stops early, e.g. renamed or delisted symbols).
+    A file *existing* is not the same as a file *covering the requested start*.
+    When the requested window is widened (adding indicator warm-up history, say),
+    every cached file still on disk covers only the old, narrower range, and a
+    resume predicate that only checked ``path.exists()`` — or that accepted any
+    previously recorded request — would skip them all and silently leave the
+    cache short.
+
+    So there are exactly two ways to be complete:
+
+    1. The cached file's **actual first bar** is at (or just after) the requested
+       start and its actual last bar reaches the requested end — the real test,
+       applied to the data rather than to bookkeeping.
+    2. A previous run recorded this ticker/frame as fetched for a range that
+       **contains** the currently requested one. This covers tickers whose
+       history legitimately begins after the requested start (recent IPOs,
+       renamed symbols): the vendor has nothing earlier, so condition 1 can
+       never be satisfied and refetching every run would be pure waste.
+       Crucially it is a *containment* test, not an equality test: a narrower
+       recorded range never satisfies a wider request.
     """
     if not path.exists():
         return False
     entry = (prior_manifest.get("tickers", {}).get(ticker, {}) or {}).get(frame)
-    if entry and entry.get("requested_start") == str(start.date()) and \
-            entry.get("requested_end") == str(end.date()):
-        return True
+    if entry:
+        rec_start = entry.get("requested_start")
+        rec_end = entry.get("requested_end")
+        if rec_start and rec_end and \
+                rec_start <= str(start.date()) and rec_end >= str(end.date()):
+            return True
     return _range_ok(_read_cached(path), start, end)
 
 
@@ -311,12 +330,24 @@ def download_universe(
     tickers: list[str] | None = None,
     sleep_seconds: float = HFDL_SLEEP_SECONDS,
     yf_batch: int = 40,
+    start_30m: str | None = None,
+    start_daily: str | None = None,
 ) -> dict:
     """Download 30m (hfdatalibrary) + daily (yfinance) bars for the universe.
 
     Resumable: any ticker whose parquet already covers the requested range is
     skipped without a network call. Writes ``_manifest.json`` and
     ``_download_failures.csv`` under ``out_root``.
+
+    ``start_30m`` / ``start_daily`` override *start* per frame. They exist
+    because the two frames need different amounts of **indicator warm-up**
+    history before the simulation window: ``indicators.compute_indicators``
+    needs 200 periods for ``ema200``, so the daily frame needs ~200 trading
+    days ahead of the window and the 30m frame needs enough bars for 200
+    derived 4h buckets (~3.25 buckets per session, so ~62 sessions). Without
+    that head-room every ticker's ``ema200`` is NaN at every simulated instant,
+    ``alignment`` collapses to 0, and ``filter.passes_hard_filter`` rejects the
+    entire universe with "missing or malformed data".
     """
     out_root = Path(out_root)
     dir_30m = out_root / "ohlcv_30m"
@@ -331,6 +362,8 @@ def download_universe(
     universe = list(tickers) if tickers is not None else build_universe()
     start_ts = pd.Timestamp(start)
     end_ts = pd.Timestamp(end)
+    start_30m_ts = pd.Timestamp(start_30m) if start_30m else start_ts
+    start_daily_ts = pd.Timestamp(start_daily) if start_daily else start_ts
 
     failures: list[dict] = []
 
@@ -338,7 +371,7 @@ def download_universe(
     fetched_30m = 0
     for i, ticker in enumerate(universe, 1):
         path = dir_30m / f"{ticker}.parquet"
-        if _is_complete(path, ticker, "30min", start_ts, end_ts, prior):
+        if _is_complete(path, ticker, "30min", start_30m_ts, end_ts, prior):
             continue
         df, err = fetch_hfdl(ticker, timeframe="30min", version="clean")
         if sleep_seconds:
@@ -347,7 +380,7 @@ def download_universe(
             logger.info("30m fetch failed for %s: %s", ticker, err)
             failures.append({"ticker": ticker, "frame": "30min", "reason": err})
             continue
-        sliced = df.loc[(df.index >= start_ts) & (df.index <= end_ts)]
+        sliced = df.loc[(df.index >= start_30m_ts) & (df.index <= end_ts)]
         if sliced.empty:
             failures.append(
                 {"ticker": ticker, "frame": "30min", "reason": "no bars in requested range"}
@@ -361,12 +394,12 @@ def download_universe(
     # ---- daily bars, batched -----------------------------------------------
     need_daily = [
         t for t in universe
-        if not _is_complete(dir_daily / f"{t}.parquet", t, "daily", start_ts, end_ts, prior)
+        if not _is_complete(dir_daily / f"{t}.parquet", t, "daily", start_daily_ts, end_ts, prior)
     ]
     for i in range(0, len(need_daily), yf_batch):
         chunk = need_daily[i:i + yf_batch]
         try:
-            frames = fetch_yf_daily(chunk, start, end)
+            frames = fetch_yf_daily(chunk, str(start_daily_ts.date()), end)
         except Exception as e:  # noqa: BLE001 - a bad batch must not abort the run
             for t in chunk:
                 failures.append(
@@ -384,6 +417,8 @@ def download_universe(
     manifest: dict = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "requested_start": str(start_ts.date()),
+        "requested_start_30min": str(start_30m_ts.date()),
+        "requested_start_daily": str(start_daily_ts.date()),
         "requested_end": str(end_ts.date()),
         "adjustment": ADJUSTMENT,
         "sources": {"30min": "hfdatalibrary", "daily": "yfinance"},
@@ -392,12 +427,12 @@ def download_universe(
     for ticker in universe:
         entry: dict = {}
         e30 = _manifest_entry(
-            dir_30m / f"{ticker}.parquet", "hfdatalibrary", "30min", start_ts, end_ts
+            dir_30m / f"{ticker}.parquet", "hfdatalibrary", "30min", start_30m_ts, end_ts
         )
         if e30:
             entry["30min"] = e30
         ed = _manifest_entry(
-            dir_daily / f"{ticker}.parquet", "yfinance", "daily", start_ts, end_ts
+            dir_daily / f"{ticker}.parquet", "yfinance", "daily", start_daily_ts, end_ts
         )
         if ed:
             entry["daily"] = ed
