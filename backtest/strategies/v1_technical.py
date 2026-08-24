@@ -85,6 +85,39 @@ _REASON_PREFIX = "RANK-PROXY CONVICTION"
 #: when every non-neutral timeframe agrees, so a survivor has exactly one.
 _BIAS_BY_TREND = {"bullish": "long", "bearish": "short"}
 
+#: Bars of *already-truncated* history handed to ``indicators.analyze_symbol``,
+#: per timeframe. Purely a cost bound, applied strictly **after** the
+#: point-in-time cut: taking a tail can only ever discard older rows, so it
+#: cannot leak — the leakage guarantee lives entirely in ``pit.py`` and is
+#: untouched here.
+#:
+#: Why it exists. ``compute_indicators`` builds full indicator *series* over
+#: whatever frame it is given and reads only ``.iloc[-1]``. By Aug 2026 the 30m
+#: frame is ~5,300 rows, so every slot computed ema9/21/50/200, RSI, MACD,
+#: Bollinger, ATR, ADX and 20-period rolling stats across thousands of bars, for
+#: 441 tickers x 3 timeframes, to read one value each. Measured: ~53 s per slot,
+#: ~4.7 h for the 2026 replay.
+#:
+#: Why these numbers. Every window in use is <= 200 bars; 1,000 gives ema200 5x
+#: its window to converge (EMA error decays geometrically) and everything else
+#: 50x or more. Validated rather than assumed: on 30 real tickers x 2 instants
+#: (60 pairs), full-frame vs bounded ``compute_indicators`` agreed on every
+#: field to <= 9.0e-06 relative (worst: 30m ``ema200``, which no gate reads),
+#: with **zero** differences in ``classify_trend``, ``alignment`` or
+#: ``passes_hard_filter`` outcomes. Do not lower these without re-running that
+#: check — a faster backtest that returns different answers is worthless.
+INDICATOR_LOOKBACK: dict[str, int] = {"30m": 1000, "4h": 1000, "daily": 800}
+
+
+def _bound(frames: dict, lookback: dict[str, int] | None) -> dict:
+    """Last *lookback[tf]* rows of each frame. ``None`` disables the bound."""
+    if not lookback:
+        return frames
+    return {
+        tf: (df.tail(lookback[tf]) if tf in lookback else df)
+        for tf, df in frames.items()
+    }
+
 
 def _rank_conviction(rank: int, total: int) -> int:
     """Rank 0 (best score in the slot) -> 10, worst -> 0, linear between.
@@ -112,8 +145,14 @@ class V1Technical:
     #: Re-exported so a report can print it without importing module internals.
     conviction_source = CONVICTION_SOURCE
 
-    def __init__(self, stop_atr_mult: float = STOP_ATR_MULT):
+    def __init__(
+        self,
+        stop_atr_mult: float = STOP_ATR_MULT,
+        lookback: dict[str, int] | None = None,
+    ):
         self.stop_atr_mult = stop_atr_mult
+        #: See :data:`INDICATOR_LOOKBACK`. Pass ``{}`` to disable the bound.
+        self.lookback = INDICATOR_LOOKBACK if lookback is None else lookback
         #: Per-slot bookkeeping from the most recent :meth:`generate`. Read by
         #: the engine's run summary; a missing-history count of zero is itself
         #: a finding, and one silently swallowed would hide a broken cache.
@@ -144,7 +183,7 @@ class V1Technical:
 
         for ticker in universe:
             try:
-                frames_by_ticker[ticker] = view.frames_for(ticker)
+                frames_by_ticker[ticker] = _bound(view.frames_for(ticker), self.lookback)
             except FileNotFoundError:
                 missing.append(ticker)
             except Exception:
@@ -245,4 +284,4 @@ class V1Technical:
         )
 
 
-__all__ = ["V1Technical", "STOP_ATR_MULT", "CONVICTION_SOURCE"]
+__all__ = ["V1Technical", "STOP_ATR_MULT", "CONVICTION_SOURCE", "INDICATOR_LOOKBACK"]
