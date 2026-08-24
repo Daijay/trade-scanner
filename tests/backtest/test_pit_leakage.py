@@ -202,19 +202,32 @@ def test_frames_for_all_timeframes_respect_as_of(view_factory):
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "as_of",
-    [
-        "2025-06-01 12:00",  # long before the cache begins
-        "2026-01-02 09:00",  # 30 minutes before the very first bar closes
-    ],
-)
-def test_as_of_before_all_data_returns_empty_frames(view_factory, as_of):
+def _earliest_bar() -> pd.Timestamp:
+    """First bar across every stored timeframe, read from the cache itself.
+
+    Derived rather than hardcoded: Task 2b widened the warm-up window and
+    silently invalidated literal dates that used to sit before the data. A
+    stale fixture here fails loudly but means nothing, which is worse than
+    useless in a leakage suite.
+    """
+    return min(
+        _read_raw(DATA_ROOT, TICKER, tf).index.min() for tf in ("30m", "daily")
+    )
+
+
+@pytest.mark.parametrize("offset", ["day-before", "inside-first-span"])
+def test_as_of_before_all_data_returns_empty_frames(view_factory, offset):
     """A clock earlier than the cache is a normal warm-up state, not an error.
 
     The second case sits just inside the first bar's span, so it also fails if
     the cut is widened — "empty" must mean empty, not "nearly empty".
     """
+    first = _earliest_bar()
+    # "day-before" is unambiguously prior to every bar. "inside-first-span"
+    # sits within the earliest bar's own interval, so nothing has closed yet --
+    # that case still fails if the cut is widened, which is what keeps this
+    # test sensitive to a planted leak rather than merely trivially true.
+    as_of = first - pd.Timedelta(days=1) if offset == "day-before" else first + pd.Timedelta(minutes=29)
     v = view_factory(as_of)
     frames = v.frames_for(TICKER)
     assert set(frames) == {"30m", "4h", "daily"}
