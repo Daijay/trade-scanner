@@ -40,13 +40,23 @@ def _setup_json(ticker):
     }
 
 
+class _FakeUsage:
+    def __init__(self, cache_read=0, cache_write=0, input_tokens=0, output_tokens=0):
+        self.cache_read_input_tokens = cache_read
+        self.cache_creation_input_tokens = cache_write
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
+
 class _FakeMessage:
-    def __init__(self, text, thinking_block=False):
+    def __init__(self, text, thinking_block=False, usage=None):
         blocks = []
         if thinking_block:
             blocks.append(type("ThinkingBlock", (), {"type": "thinking", "thinking": "reasoning..."})())
         blocks.append(type("TextBlock", (), {"type": "text", "text": text})())
         self.content = blocks
+        if usage is not None:
+            self.usage = usage
 
 
 class _FakeMessages:
@@ -236,12 +246,16 @@ def test_analyze_survivors_normalizes_bare_string_timeframes(monkeypatch):
     assert tfs["daily"] == {"trend": "flat"}
 
 
-def test_call_claude_sends_cached_system_prompt_matching_prior_content(monkeypatch):
-    """Verifies the API call structure: static instructions go in a cached
-    system block, the per-call payload goes in the user message, and
-    reassembling system + user reproduces byte-for-byte the single-prompt
-    text this codebase sent before caching was introduced (i.e. prompt
-    content is unchanged, only how it's split across the request)."""
+def test_call_claude_sends_cached_system_prompt_with_exact_text(monkeypatch):
+    """Golden copy of the outbound prompt: static instructions go in a
+    cached system block, the per-call payload goes in the user message, and
+    reassembling system + user yields exactly the text below.
+
+    Editing the prompt in analyst.py will fail this test, which is the
+    point -- a prompt edit changes what setups the scan produces AND
+    invalidates the prompt cache (the cached prefix is a byte-for-byte
+    match). Both consequences should be deliberate, so update this expected
+    text in the same commit rather than regenerating it reflexively."""
     survivors = [_survivor("AAPL")]
     response_text = json.dumps([_setup_json("AAPL")])
     fake_client = _FakeClient([response_text])
@@ -282,18 +296,87 @@ symbol, matching this exact schema:
 Each of "30m"/"4h"/"daily" MUST be an object with a "trend" key as shown --
 never a bare string.
 
+INPUT PAYLOAD FIELDS
+Each object in the input array carries:
+- "ticker": the symbol.
+- "price": last daily close. Anchor entry, stop and target to this.
+- "alignment": how many of the three timeframes agree on direction (2 or 3).
+- "horizon": already computed from alignment -- copy it through verbatim.
+- "timeframes": per-timeframe indicator snapshot, each holding ema9, ema21,
+  ema50, ema200, rsi14, macd_hist, bb_upper, bb_lower, atr14, atr_pct,
+  adx14, vol_ratio, and a precomputed "trend" label.
+- "range_position_20d": where the close sits in the 20-day range, 0.0 at the
+  low and 1.0 at the high. Near 1.0 is a breakout-or-resistance context;
+  near 0.0 is a support-or-reversal context.
+- "vol_ratio": current volume over its 20-period average. Meaningfully
+  above 1.0 is real participation; around 1.0 is unremarkable.
+- "bars_since_flip" / "min_bars_since_flip": bars since each timeframe last
+  changed direction. Informational context only -- never score or filter on
+  them, and never cite them as the reason for a conviction.
+- "news": net_sentiment (-1.0 to 1.0, or null when there is no coverage)
+  and the recent headlines behind it.
+
+OUTPUT FIELD RULES
+- "entry", "stop" and "target" are absolute prices in the same units as
+  "price" -- not offsets, not percentages.
+- "bias" must agree with the geometry of your own numbers: for a long,
+  stop < entry < target; for a short, target < entry < stop.
+- "rr" must be consistent with the prices you return. Compute it from them
+  rather than asserting a figure they contradict.
+- "news_read" is one short clause on what the coverage implies for the
+  setup. When net_sentiment is null or there are no headlines, say there is
+  no material coverage -- never invent a narrative to fill the field.
+- "reasoning" is one to three sentences citing the specific payload values
+  that drove the call.
+
 Rules:
 - Stops MUST be derived from ATR (atr14 in the payload), not arbitrary round numbers.
+  Use the atr14 belonging to the timeframe that matches the horizon: daily
+  for a swing, 30m for an intraday. Roughly 1.5x to 2.5x that atr14 away
+  from entry is the workable band -- tighter than that and ordinary noise
+  takes the trade out, wider and the reward:risk stops clearing the floor.
+  Worked example: entry 100.00 against a daily atr14 of 2.00 puts a long
+  stop near 96.00, which is 2x the ATR below entry.
 - Each symbol's "horizon" is already computed for you in the input payload
   (from its alignment score) -- use that exact value, do not decide it yourself.
 - If a setup's reward:risk (rr = (target-entry)/(entry-stop) in absolute
   terms) is below {config.MIN_RR}, you must still return the object but with
   conviction: 0.
 - Conviction is a RELATIVE RANKING WITHIN THIS BATCH ONLY -- it is not a
-  probability of profit, not a guarantee, not a forecast.
+  probability of profit, not a guarantee, not a forecast. Rank the batch
+  against itself: the cleanest one or two setups take the top scores, the
+  merely acceptable sit mid-scale, and anything you would not take yourself
+  is a 0. Do not return a batch of uniformly high scores -- if every symbol
+  looks like an 8, you have not ranked them, you have flattered them.
+- What separates a high conviction from a low one, in descending weight:
+  all three timeframes agreeing rather than two; adx14 confirming the trend
+  actually has strength rather than drifting sideways; vol_ratio showing
+  real participation behind the move; a range_position_20d that leaves the
+  target room to run rather than parking entry directly beneath resistance;
+  and news that does not cut against the technical read.
 - If a symbol has no clean setup, return it with conviction: 0 rather than
   inventing one.
+
+WORKED EXAMPLES OF "reasoning"
+Good, high conviction: "All three timeframes bullish, daily adx14 at 31 and
+vol_ratio 1.9 confirm participation behind the move, and
+range_position_20d of 0.55 leaves room to the 20-day high before the
+target." Specific values, an explanation of why each matters, no claim
+about what the market will do next.
+Good, low conviction: "Two-timeframe alignment only, and daily adx14 of 14
+says this is drifting rather than trending; entry sits at
+range_position_20d 0.94 with resistance immediately overhead, so rr comes
+in under the floor." States plainly why the setup is weak instead of
+talking itself into it.
+Bad: "Strong setup, great chart, this one is a sure thing." Cites no
+values and promises an outcome.
+Bad: "RSI is 58." A number with no interpretation and no link to the call.
+
 - In "reasoning", never use any of these words or phrases: {forbidden}.
+  They are banned because each asserts a certainty no technical setup
+  possesses -- every trade this system produces can lose. Describe what the
+  indicators show and what would invalidate the setup, not what the market
+  will do. "The setup is void below the stop" is the register to write in.
 - bars_since_flip / min_bars_since_flip fields are informational context only.
 
 Input symbols:
@@ -339,3 +422,45 @@ def test_analyze_survivors_empty_list_no_api_call(monkeypatch):
 
     assert results == []
     assert called["n"] == 0
+
+
+# -- Prompt caching: size floor and usage observability -------------------
+
+def test_system_prompt_clears_prompt_cache_minimum():
+    """Anthropic's prompt cache has a ~1024-token minimum cacheable prefix
+    and silently declines to cache anything shorter -- no error, just full
+    price on every call. Measured with messages.count_tokens, the system
+    prompt is ~2187 tokens; this asserts a conservative character floor
+    (~4200 chars is over 1024 tokens even at a token-sparse 4 chars/token)
+    so that trimming the prompt back under the threshold fails loudly
+    instead of silently disabling caching."""
+    assert len(analyst._build_system_prompt()) >= 4200
+
+
+def test_call_claude_logs_cache_usage(caplog):
+    """Cache effectiveness has to be visible in production logs -- a silent
+    non-caching prompt is exactly the failure mode this guards."""
+    fake_client = _FakeClient([])
+    fake_client.messages._responses = [None]
+
+    def _create(**kwargs):
+        fake_client.messages.calls.append(kwargs)
+        return _FakeMessage(
+            json.dumps([_setup_json("AAPL")]),
+            usage=_FakeUsage(cache_read=2048, cache_write=0, input_tokens=310, output_tokens=95),
+        )
+
+    fake_client.messages.create = _create
+
+    with caplog.at_level("INFO"):
+        analyst._call_claude(fake_client, [{"ticker": "AAPL"}])
+
+    assert "cache_read=2048" in caplog.text
+    assert "cache_write=0" in caplog.text
+
+
+def test_call_claude_survives_response_without_usage():
+    """Observability must never be able to break a scan: a response object
+    with no usage attribute is logged past, not raised on."""
+    fake_client = _FakeClient([json.dumps([_setup_json("AAPL")])])
+    assert analyst._call_claude(fake_client, [{"ticker": "AAPL"}]) is not None

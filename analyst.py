@@ -103,7 +103,13 @@ def _build_payload(survivor: dict) -> dict:
 def _build_system_prompt() -> str:
     """Static instructions, identical across every batch call (and across
     scans). Split out from the per-call payload so it can be sent as a
-    cached system block -- see _call_claude."""
+    cached system block -- see _call_claude.
+
+    Length is load-bearing: Anthropic's prompt cache has a ~1024-token
+    minimum cacheable prefix and SILENTLY declines to cache anything
+    shorter. Do not trim this block for brevity -- if it drops back under
+    that floor the cache stops engaging with no error, and the only
+    symptom is cache_read_input_tokens sitting at 0 in the scan logs."""
     forbidden = ", ".join(_FORBIDDEN_WORDS)
     return f"""You are a trading analyst. You will be given a JSON array of compact
 per-symbol technical + news payloads for symbols that already passed a hard
@@ -124,18 +130,87 @@ symbol, matching this exact schema:
 Each of "30m"/"4h"/"daily" MUST be an object with a "trend" key as shown --
 never a bare string.
 
+INPUT PAYLOAD FIELDS
+Each object in the input array carries:
+- "ticker": the symbol.
+- "price": last daily close. Anchor entry, stop and target to this.
+- "alignment": how many of the three timeframes agree on direction (2 or 3).
+- "horizon": already computed from alignment -- copy it through verbatim.
+- "timeframes": per-timeframe indicator snapshot, each holding ema9, ema21,
+  ema50, ema200, rsi14, macd_hist, bb_upper, bb_lower, atr14, atr_pct,
+  adx14, vol_ratio, and a precomputed "trend" label.
+- "range_position_20d": where the close sits in the 20-day range, 0.0 at the
+  low and 1.0 at the high. Near 1.0 is a breakout-or-resistance context;
+  near 0.0 is a support-or-reversal context.
+- "vol_ratio": current volume over its 20-period average. Meaningfully
+  above 1.0 is real participation; around 1.0 is unremarkable.
+- "bars_since_flip" / "min_bars_since_flip": bars since each timeframe last
+  changed direction. Informational context only -- never score or filter on
+  them, and never cite them as the reason for a conviction.
+- "news": net_sentiment (-1.0 to 1.0, or null when there is no coverage)
+  and the recent headlines behind it.
+
+OUTPUT FIELD RULES
+- "entry", "stop" and "target" are absolute prices in the same units as
+  "price" -- not offsets, not percentages.
+- "bias" must agree with the geometry of your own numbers: for a long,
+  stop < entry < target; for a short, target < entry < stop.
+- "rr" must be consistent with the prices you return. Compute it from them
+  rather than asserting a figure they contradict.
+- "news_read" is one short clause on what the coverage implies for the
+  setup. When net_sentiment is null or there are no headlines, say there is
+  no material coverage -- never invent a narrative to fill the field.
+- "reasoning" is one to three sentences citing the specific payload values
+  that drove the call.
+
 Rules:
 - Stops MUST be derived from ATR (atr14 in the payload), not arbitrary round numbers.
+  Use the atr14 belonging to the timeframe that matches the horizon: daily
+  for a swing, 30m for an intraday. Roughly 1.5x to 2.5x that atr14 away
+  from entry is the workable band -- tighter than that and ordinary noise
+  takes the trade out, wider and the reward:risk stops clearing the floor.
+  Worked example: entry 100.00 against a daily atr14 of 2.00 puts a long
+  stop near 96.00, which is 2x the ATR below entry.
 - Each symbol's "horizon" is already computed for you in the input payload
   (from its alignment score) -- use that exact value, do not decide it yourself.
 - If a setup's reward:risk (rr = (target-entry)/(entry-stop) in absolute
   terms) is below {config.MIN_RR}, you must still return the object but with
   conviction: 0.
 - Conviction is a RELATIVE RANKING WITHIN THIS BATCH ONLY -- it is not a
-  probability of profit, not a guarantee, not a forecast.
+  probability of profit, not a guarantee, not a forecast. Rank the batch
+  against itself: the cleanest one or two setups take the top scores, the
+  merely acceptable sit mid-scale, and anything you would not take yourself
+  is a 0. Do not return a batch of uniformly high scores -- if every symbol
+  looks like an 8, you have not ranked them, you have flattered them.
+- What separates a high conviction from a low one, in descending weight:
+  all three timeframes agreeing rather than two; adx14 confirming the trend
+  actually has strength rather than drifting sideways; vol_ratio showing
+  real participation behind the move; a range_position_20d that leaves the
+  target room to run rather than parking entry directly beneath resistance;
+  and news that does not cut against the technical read.
 - If a symbol has no clean setup, return it with conviction: 0 rather than
   inventing one.
+
+WORKED EXAMPLES OF "reasoning"
+Good, high conviction: "All three timeframes bullish, daily adx14 at 31 and
+vol_ratio 1.9 confirm participation behind the move, and
+range_position_20d of 0.55 leaves room to the 20-day high before the
+target." Specific values, an explanation of why each matters, no claim
+about what the market will do next.
+Good, low conviction: "Two-timeframe alignment only, and daily adx14 of 14
+says this is drifting rather than trending; entry sits at
+range_position_20d 0.94 with resistance immediately overhead, so rr comes
+in under the floor." States plainly why the setup is weak instead of
+talking itself into it.
+Bad: "Strong setup, great chart, this one is a sure thing." Cites no
+values and promises an outcome.
+Bad: "RSI is 58." A number with no interpretation and no link to the call.
+
 - In "reasoning", never use any of these words or phrases: {forbidden}.
+  They are banned because each asserts a certainty no technical setup
+  possesses -- every trade this system produces can lose. Describe what the
+  indicators show and what would invalidate the setup, not what the market
+  will do. "The setup is void below the stop" is the register to write in.
 - bars_since_flip / min_bars_since_flip fields are informational context only."""
 
 
@@ -221,6 +296,27 @@ def _extract_text(response) -> str | None:
     return "".join(parts) if parts else None
 
 
+def _log_cache_usage(response) -> None:
+    """Record prompt-cache effectiveness so production logs can answer
+    whether the cached system block is actually being served from cache.
+
+    cache_read of 0 on every call means the cache never engaged. The usual
+    cause is the system prefix falling back under Anthropic's ~1024-token
+    minimum, which fails silently -- no error, no warning, just full price
+    on every batch. Never raises: this is observability, and it must not be
+    able to take down a scan."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    logger.info(
+        "Claude usage: cache_read=%s cache_write=%s uncached_input=%s output=%s",
+        getattr(usage, "cache_read_input_tokens", None),
+        getattr(usage, "cache_creation_input_tokens", None),
+        getattr(usage, "input_tokens", None),
+        getattr(usage, "output_tokens", None),
+    )
+
+
 def _call_claude(client, payloads: list[dict], strict: bool = False) -> str | None:
     user_content = _build_user_content(payloads, strict=strict)
     try:
@@ -237,6 +333,7 @@ def _call_claude(client, payloads: list[dict], strict: bool = False) -> str | No
             ],
             messages=[{"role": "user", "content": user_content}],
         )
+        _log_cache_usage(response)
         return _extract_text(response)
     except Exception as e:
         logger.warning("Claude API call failed: %r", e)
