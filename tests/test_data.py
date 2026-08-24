@@ -137,3 +137,63 @@ def test_fetch_market_context_returns_empty_on_exception(monkeypatch):
 def test_fetch_market_context_returns_empty_when_nothing_available(monkeypatch):
     monkeypatch.setattr(data, "fetch_ohlcv", lambda symbols, timeframe: {})
     assert fetch_market_context() == ""
+
+
+# -- Minimum-bar-count validation ----------------------------------------
+# Regression guard for the Aug 21 2026 outage: VMRK (a ticker rename) carried
+# 400 daily bars but only 28 1h bars, which resampled to 8 4h bars. ta's
+# AverageTrueRange(window=14) indexes position 13 and raised IndexError,
+# aborting the entire 499-symbol scan.
+
+def _ohlcv(n, freq, start="2026-08-18 09:30"):
+    idx = pd.date_range(start, periods=n, freq=freq, tz="America/New_York")
+    return pd.DataFrame(
+        {"Open": 100.0, "High": 101.0, "Low": 99.0, "Close": 100.5, "Volume": 1_000_000.0},
+        index=idx,
+    )
+
+
+def _patch_frames(monkeypatch, per_symbol):
+    """per_symbol: {timeframe: {symbol: df}}."""
+    def _fake_fetch(symbols, timeframe):
+        return per_symbol[timeframe]
+    monkeypatch.setattr(data, "fetch_ohlcv", _fake_fetch)
+
+
+def test_fetch_all_timeframes_drops_symbol_with_too_few_4h_bars(monkeypatch):
+    # 28 1h bars resample to 8 4h bars -- the exact VMRK shape.
+    _patch_frames(monkeypatch, {
+        "30m": {"VMRK": _ohlcv(52, "30min")},
+        "4h": {"VMRK": _ohlcv(28, "1h")},
+        "daily": {"VMRK": _ohlcv(400, "1D")},
+    })
+    assert fetch_all_timeframes(["VMRK"]) == {}
+
+
+def test_fetch_all_timeframes_keeps_symbol_with_enough_bars(monkeypatch):
+    _patch_frames(monkeypatch, {
+        "30m": {"OK": _ohlcv(300, "30min")},
+        "4h": {"OK": _ohlcv(300, "1h")},
+        "daily": {"OK": _ohlcv(300, "1D")},
+    })
+    result = fetch_all_timeframes(["OK"])
+    assert set(result.keys()) == {"OK"}
+    assert set(result["OK"].keys()) == {"30m", "4h", "daily"}
+
+
+def test_fetch_all_timeframes_drops_only_the_short_symbol(monkeypatch):
+    _patch_frames(monkeypatch, {
+        "30m": {"OK": _ohlcv(300, "30min"), "SHORT": _ohlcv(52, "30min")},
+        "4h": {"OK": _ohlcv(300, "1h"), "SHORT": _ohlcv(28, "1h")},
+        "daily": {"OK": _ohlcv(300, "1D"), "SHORT": _ohlcv(400, "1D")},
+    })
+    assert set(fetch_all_timeframes(["OK", "SHORT"]).keys()) == {"OK"}
+
+
+def test_fetch_all_timeframes_drops_symbol_with_too_few_daily_bars(monkeypatch):
+    _patch_frames(monkeypatch, {
+        "30m": {"IPO": _ohlcv(300, "30min")},
+        "4h": {"IPO": _ohlcv(300, "1h")},
+        "daily": {"IPO": _ohlcv(5, "1D")},
+    })
+    assert fetch_all_timeframes(["IPO"]) == {}

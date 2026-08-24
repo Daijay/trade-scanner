@@ -18,6 +18,13 @@ TIMEFRAMES = {
     "daily": {"interval": "1d", "period": "400d"},
 }
 
+# Minimum usable bars required on EVERY timeframe before a symbol is scanned.
+# Not a filter threshold -- a data-validity floor. ta's positional indicators
+# (AverageTrueRange, ADXIndicator) index position window-1 == 13 and raise
+# IndexError on shorter frames; 20 clears that with margin and also covers the
+# 20-period Bollinger/volume/range lookbacks. Measured AFTER the 4h resample.
+MIN_BARS_PER_TIMEFRAME = 20
+
 # -- Filter thresholds (tune these, not the code) ------------------------
 MIN_AVG_VOLUME = 1_000_000      # liquidity floor
 MIN_PRICE = 5.00                # no penny stocks

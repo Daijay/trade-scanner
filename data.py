@@ -9,6 +9,7 @@ import requests
 import yfinance as yf
 
 import config
+import indicators
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,22 @@ def fetch_market_context() -> str:
     return " | ".join(parts)
 
 
+def _short_timeframes(frames: dict[str, pd.DataFrame]) -> dict[str, int]:
+    """Timeframes holding fewer than config.MIN_BARS_PER_TIMEFRAME usable bars.
+
+    Counts bars on the frame indicators actually run on, not the raw fetched
+    frame: '4h' arrives as 1h bars, so a symbol can hold plenty of 1h rows and
+    still resample to far too few 4h bars. VMRK did exactly that on Aug 21 2026
+    -- 400 daily bars, 28 1h bars, 8 4h bars -- and the 8-row 4h frame crashed
+    ta's AverageTrueRange(window=14), aborting the whole scan."""
+    short = {}
+    for tf, df in frames.items():
+        n = len(indicators.effective_frame(tf, df))
+        if n < config.MIN_BARS_PER_TIMEFRAME:
+            short[tf] = n
+    return short
+
+
 def fetch_all_timeframes(symbols: list[str]) -> dict[str, dict[str, pd.DataFrame]]:
     """Fetch 30m/4h/daily for all symbols; keep only symbols present on all three."""
     per_tf = {tf: fetch_ohlcv(symbols, tf) for tf in config.TIMEFRAMES}
@@ -156,10 +173,19 @@ def fetch_all_timeframes(symbols: list[str]) -> dict[str, dict[str, pd.DataFrame
         for tf in config.TIMEFRAMES:
             if symbol in per_tf[tf]:
                 frames[tf] = per_tf[tf][symbol]
-        if set(frames.keys()) == set(config.TIMEFRAMES.keys()):
-            result[symbol] = frames
-        else:
+        if set(frames.keys()) != set(config.TIMEFRAMES.keys()):
             missing = set(config.TIMEFRAMES.keys()) - set(frames.keys())
             logger.info("Dropping %s: missing timeframes %s", symbol, missing)
+            continue
+
+        short = _short_timeframes(frames)
+        if short:
+            logger.info(
+                "Dropping %s: insufficient history %s (need >= %d bars each)",
+                symbol, short, config.MIN_BARS_PER_TIMEFRAME,
+            )
+            continue
+
+        result[symbol] = frames
 
     return result

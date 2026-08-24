@@ -109,3 +109,47 @@ def test_run_filter_records_include_bars_since_flip(monkeypatch):
         assert "min_bars_since_flip" in record
         assert set(record["bars_since_flip"].keys()) == {"30m", "4h", "daily"}
         assert record["min_bars_since_flip"] == min(record["bars_since_flip"].values())
+
+
+# -- Per-symbol crash isolation -------------------------------------------
+# Regression guard for the Aug 21 2026 outage: one short-history ticker raised
+# IndexError inside analyze_symbol and aborted the whole 499-symbol scan.
+
+def test_run_filter_skips_symbol_whose_analysis_raises(monkeypatch):
+    import indicators
+
+    real = indicators.analyze_symbol
+
+    def _boom(frames):
+        if len(frames["daily"]) == 7:
+            raise IndexError("index 13 is out of bounds for axis 0 with size 8")
+        return real(frames)
+
+    monkeypatch.setattr(indicators, "analyze_symbol", _boom)
+
+    universe = {
+        "GOOD": _good_frames(),
+        "BAD": {"30m": _df(7, 100.0, 0.3, "1h"),
+                "4h": _df(7, 100.0, 0.3, "1h"),
+                "daily": _df(7, 100.0, 0.5, "1d")},
+    }
+    survivors, filtered_out = run_filter(universe)
+
+    seen = {e["symbol"] for e in survivors} | {e["symbol"] for e in filtered_out}
+    assert "BAD" not in seen
+    assert "GOOD" in seen
+
+
+def test_run_filter_logs_the_skipped_symbol(monkeypatch, caplog):
+    import indicators
+
+    def _boom(frames):
+        raise IndexError("index 13 is out of bounds for axis 0 with size 8")
+
+    monkeypatch.setattr(indicators, "analyze_symbol", _boom)
+
+    with caplog.at_level("WARNING"):
+        survivors, filtered_out = run_filter({"BAD": _good_frames()})
+
+    assert survivors == [] and filtered_out == []
+    assert "BAD" in caplog.text

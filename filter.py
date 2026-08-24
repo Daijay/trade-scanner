@@ -1,9 +1,13 @@
 # filter.py
 """Hard reject rules + survivor scoring. PLAN.md §6. Pure math, zero API cost."""
 
+import logging
+
 import numpy as np
 
 import config
+
+logger = logging.getLogger(__name__)
 
 
 def _avg_volume_and_price(frames: dict) -> tuple[float, float]:
@@ -66,7 +70,15 @@ def run_filter(universe_frames: dict) -> tuple[list[dict], list[dict]]:
     filtered_out = []
 
     for symbol, frames in universe_frames.items():
-        analysis = analyze_symbol(frames)
+        try:
+            analysis = analyze_symbol(frames)
+        except Exception:
+            # One malformed symbol must never abort the scan. data.py screens
+            # short history up front, but any indicator that blows up on an
+            # unforeseen data shape gets contained here rather than costing a
+            # whole run (the Aug 21 2026 VMRK outage).
+            logger.warning("Skipping %s: indicator computation failed", symbol, exc_info=True)
+            continue
         ok, reason = passes_hard_filter(symbol, frames, analysis)
         if not ok:
             filtered_out.append({

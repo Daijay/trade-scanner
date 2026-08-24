@@ -14,6 +14,20 @@ def resample_to_4h(df_1h: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def effective_frame(tf: str, df: pd.DataFrame) -> pd.DataFrame:
+    """The frame indicators actually run on for timeframe `tf`.
+
+    '4h' is fetched as raw 1h bars (yfinance has no native 4h) and must be
+    resampled before anything measures or computes on it. Shared with data.py's
+    bar-count validation so both count the same bars."""
+    if tf == "4h" and len(df) > 0:
+        # Accept either pre-resampled 4h bars or raw 1h bars.
+        inferred_freq = df.index.to_series().diff().median()
+        if inferred_freq is not None and inferred_freq < pd.Timedelta(hours=2):
+            return resample_to_4h(df)
+    return df
+
+
 def _last(series: pd.Series) -> float:
     val = series.iloc[-1]
     return float(val) if pd.notna(val) else float("nan")
@@ -124,12 +138,7 @@ def analyze_symbol(frames: dict) -> dict:
     trends = {}
     flips = {}
     for tf, df in frames.items():
-        working = df
-        if tf == "4h" and len(df) > 0:
-            # Accept either pre-resampled 4h bars or raw 1h bars.
-            inferred_freq = df.index.to_series().diff().median()
-            if inferred_freq is not None and inferred_freq < pd.Timedelta(hours=2):
-                working = resample_to_4h(df)
+        working = effective_frame(tf, df)
         snap = compute_indicators(working)
         snapshots[tf] = snap
         trends[tf] = classify_trend(snap)
