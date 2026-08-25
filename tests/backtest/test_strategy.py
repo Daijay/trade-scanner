@@ -22,7 +22,7 @@ import pandas as pd
 import pytest
 
 import journal
-from backtest.calendar import scan_slots
+from backtest.market_calendar import scan_slots
 from backtest.store import BarStore
 from backtest.strategy import BIASES, JOURNAL_SETUP_KEYS, Signal, Strategy
 

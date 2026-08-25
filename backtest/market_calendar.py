@@ -1,4 +1,4 @@
-# backtest/calendar.py
+# backtest/market_calendar.py
 """The simulation clock: the instants at which a replayed scan runs.
 
 Two independent facts define a slot, and both are read rather than invented.

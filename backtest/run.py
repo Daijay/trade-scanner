@@ -66,7 +66,7 @@ def main(argv=None) -> int:
     universe = store.tickers("30m")
     print(f"universe: {len(universe)} tickers with 30m history", flush=True)
 
-    from backtest.calendar import scan_slots
+    from backtest.market_calendar import scan_slots
 
     slots = list(scan_slots(args.start, args.end, root=args.root))
     if args.limit_slots:

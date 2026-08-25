@@ -53,7 +53,7 @@ import pandas as pd
 
 import config
 import journal
-from backtest.calendar import scan_slots
+from backtest.market_calendar import scan_slots
 from backtest.store import BarStore
 from backtest.strategy import Signal
 
@@ -112,7 +112,7 @@ def scan_label(slot) -> str:
 
     ``config.SCAN_TIMES_PT`` is Pacific; slots are US/Eastern wall clock. The
     conversion is done per date so DST is handled rather than assumed, matching
-    ``backtest.calendar``.
+    ``backtest.market_calendar``.
     """
     ts = pd.Timestamp(slot)
     market_tz = ZoneInfo(config.MARKET_TZ)

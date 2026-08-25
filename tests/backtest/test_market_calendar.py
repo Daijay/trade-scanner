@@ -21,7 +21,7 @@ import pandas as pd
 import pytest
 
 import config
-from backtest import calendar as bt_calendar
+from backtest import market_calendar as bt_calendar
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REAL_ROOT = REPO_ROOT / "data"
