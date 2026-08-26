@@ -4,33 +4,40 @@
 
 ## Run
 
-- window: `2026-01-02 09:00:00` → `2026-01-02 15:30:00`
-- scan slots replayed: 2
+- window: `2026-01-02 09:00:00` → `2026-08-21 15:30:00`
+- scan slots replayed: 320
 - universe: 441 tickers with cached 30m history
-- signals before the technical_proxy_gate: 60 (MAX_SURVIVORS = 30)
-- alerts after the technical_proxy_gate: 16 (MAX_ALERTS = 8 per slot)
+- signals before the technical_proxy_gate: 9599 (MAX_SURVIVORS = 30)
+- alerts after the technical_proxy_gate: 2560 (MAX_ALERTS = 8 per slot)
 - conviction column: rank proxy: score_survivor rank within the scan slot, mapped 0-10 (top-ranked = 10). NOT analyst.py model conviction; no news input.
-- wall clock: 1.3 min
+- wall clock: 0.3 min
 
 ## Overall
 
 | segment | hit_rate | adj_hit_rate | scratch_rate | avg_rr | wins | losses | scratches | open | resolved |
 |---|---|---|---|---|---|---|---|---|---|
-| all | n/a | n/a | n/a | n/a | 0 | 0 | 0 | 16 | 0 |
+| all | 60.7% | 51.2% | 88.8% | +0.058 | 173 | 112 | 2251 | 24 | 2536 |
 
-Resolved 0 of 16 alerts; 16 still open at the end of the window (an open alert has no outcome and is excluded from every rate above).
+Resolved 2536 of 2560 alerts; 24 still open at the end of the window (an open alert has no outcome and is excluded from every rate above).
 
 ## By strategy
 
 | strategy | hit_rate | adj_hit_rate | scratch_rate | avg_rr | wins | losses | scratches | open | resolved |
 |---|---|---|---|---|---|---|---|---|---|
-| v1_technical | n/a | n/a | n/a | n/a | 0 | 0 | 0 | 16 | 0 |
+| v1_technical | 60.7% | 51.2% | 88.8% | +0.058 | 173 | 112 | 2251 | 24 | 2536 |
 
 ## By month
 
 | month | hit_rate | adj_hit_rate | scratch_rate | avg_rr | wins | losses | scratches | open | resolved |
 |---|---|---|---|---|---|---|---|---|---|
-| 2026-01 | n/a | n/a | n/a | n/a | 0 | 0 | 0 | 16 | 0 |
+| 2026-01 | 40.4% | 48.6% | 85.3% | +0.002 | 19 | 28 | 273 | 0 | 320 |
+| 2026-02 | 82.9% | 54.4% | 86.5% | +0.145 | 34 | 7 | 263 | 0 | 304 |
+| 2026-03 | 31.8% | 48.9% | 93.8% | -0.013 | 7 | 15 | 330 | 0 | 352 |
+| 2026-04 | 76.1% | 53.6% | 86.3% | +0.124 | 35 | 11 | 289 | 1 | 335 |
+| 2026-05 | 73.3% | 53.3% | 85.9% | +0.117 | 33 | 12 | 275 | 0 | 320 |
+| 2026-06 | 64.9% | 51.6% | 89.0% | +0.068 | 24 | 13 | 299 | 0 | 336 |
+| 2026-07 | 44.8% | 49.6% | 91.8% | +0.010 | 13 | 16 | 323 | 0 | 352 |
+| 2026-08 | 44.4% | 49.5% | 91.7% | +0.009 | 8 | 10 | 199 | 23 | 217 |
 
 ## How to read these numbers
 
