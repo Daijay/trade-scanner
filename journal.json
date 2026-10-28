@@ -19810,11 +19810,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-VEEV",
@@ -19829,11 +19829,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-MS",
@@ -19848,10 +19848,10 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
-    "resolved_at": null,
-    "outcome": null,
+    "resolved_at": "2026-10-28T09:30:00-04:00",
+    "outcome": "loss",
     "bars_open": 11
   },
   {
@@ -19867,11 +19867,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-FLEX",
@@ -19886,11 +19886,11 @@
     "rr": 1.93,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-APA",
@@ -19905,11 +19905,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-SYK",
@@ -19924,11 +19924,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-AMZN",
@@ -19962,11 +19962,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-COST",
@@ -19981,11 +19981,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-CHD",
@@ -20000,11 +20000,11 @@
     "rr": 1.28,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-MNST",
@@ -20019,11 +20019,11 @@
     "rr": 0.65,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-LIN",
@@ -20038,11 +20038,11 @@
     "rr": 0.5,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-IVZ",
@@ -20057,11 +20057,11 @@
     "rr": 1.86,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-CTSH",
@@ -20095,11 +20095,11 @@
     "rr": 1.62,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-DAL",
@@ -20114,10 +20114,10 @@
     "rr": 1.48,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
-    "resolved_at": null,
-    "outcome": null,
+    "resolved_at": "2026-10-28T09:30:00-04:00",
+    "outcome": "loss",
     "bars_open": 11
   },
   {
@@ -20133,10 +20133,10 @@
     "rr": 0.81,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
-    "resolved_at": null,
-    "outcome": null,
+    "resolved_at": "2026-10-28T09:30:00-04:00",
+    "outcome": "loss",
     "bars_open": 11
   },
   {
@@ -20152,11 +20152,11 @@
     "rr": 1.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-GEV",
@@ -20171,11 +20171,11 @@
     "rr": 1.5,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-BEN",
@@ -20190,11 +20190,11 @@
     "rr": 2.0,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-HOOD",
@@ -20209,11 +20209,11 @@
     "rr": 2.07,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-CVNA",
@@ -20228,11 +20228,11 @@
     "rr": 1.6,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-C",
@@ -20247,11 +20247,11 @@
     "rr": 1.47,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-AXP",
@@ -20266,11 +20266,11 @@
     "rr": 1.53,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "lower",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-IBM",
@@ -20304,11 +20304,11 @@
     "rr": 1.44,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-CDW",
@@ -20323,11 +20323,11 @@
     "rr": 1.75,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-DVN",
@@ -20342,11 +20342,11 @@
     "rr": 1.55,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
     "resolved_at": null,
-    "outcome": null,
-    "bars_open": 11
+    "outcome": "scratch",
+    "bars_open": 21
   },
   {
     "id": "2026-10-19T11:42-ON",
@@ -20361,10 +20361,10 @@
     "rr": 2.13,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": "upper",
-    "resolved_at": null,
-    "outcome": null,
+    "resolved_at": "2026-10-28T09:30:00-04:00",
+    "outcome": "loss",
     "bars_open": 11
   },
   {
@@ -20381,10 +20381,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-CRL",
@@ -20400,10 +20400,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-LHX",
@@ -20419,10 +20419,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-GD",
@@ -20438,10 +20438,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-BRK-B",
@@ -20457,10 +20457,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-NFLX",
@@ -20476,10 +20476,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-NOC",
@@ -20495,10 +20495,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-RTX",
@@ -20514,10 +20514,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-HST",
@@ -20533,10 +20533,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-KEY",
@@ -20552,10 +20552,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-CVNA",
@@ -20571,10 +20571,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-TSLA",
@@ -20590,10 +20590,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-RDDT",
@@ -20609,10 +20609,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-FDX",
@@ -20628,10 +20628,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-UBER",
@@ -20647,10 +20647,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-UNP",
@@ -20666,10 +20666,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-DASH",
@@ -20685,10 +20685,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-DHR",
@@ -20704,10 +20704,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-CRH",
@@ -20723,10 +20723,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-MRK",
@@ -20742,10 +20742,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-NXPI",
@@ -20761,10 +20761,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "lower",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-LUV",
@@ -20780,10 +20780,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-AFL",
@@ -20799,10 +20799,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-DOV",
@@ -20818,10 +20818,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-TGT",
@@ -20837,10 +20837,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-TXT",
@@ -20856,10 +20856,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-TXN",
@@ -20875,10 +20875,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-WELL",
@@ -20893,10 +20893,10 @@
     "rr": 1.5,
     "horizon": "swing",
     "alerted": true,
-    "status": "open",
+    "status": "closed",
     "position": null,
-    "resolved_at": null,
-    "outcome": null,
+    "resolved_at": "2026-10-28T09:30:00-04:00",
+    "outcome": "loss",
     "bars_open": 0
   },
   {
@@ -20913,10 +20913,10 @@
     "horizon": "swing",
     "alerted": true,
     "status": "open",
-    "position": null,
+    "position": "upper",
     "resolved_at": null,
     "outcome": null,
-    "bars_open": 0
+    "bars_open": 10
   },
   {
     "id": "2026-10-26T11:40-EIX",
@@ -20929,6 +20929,576 @@
     "stop": 54.46,
     "target": 60.5,
     "rr": 0.88,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": "upper",
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 10
+  },
+  {
+    "id": "2026-10-28T11:20-GEHC",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "GEHC",
+    "bias": "long",
+    "conviction": 7,
+    "entry": 76.85,
+    "stop": 72.72,
+    "target": 84.0,
+    "rr": 1.73,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-ODFL",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "ODFL",
+    "bias": "short",
+    "conviction": 5,
+    "entry": 173.77,
+    "stop": 185.61,
+    "target": 155.0,
+    "rr": 1.59,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-PPG",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "PPG",
+    "bias": "long",
+    "conviction": 6,
+    "entry": 119.33,
+    "stop": 111.46,
+    "target": 131.0,
+    "rr": 1.48,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-ARE",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "ARE",
+    "bias": "short",
+    "conviction": 6,
+    "entry": 38.46,
+    "stop": 41.73,
+    "target": 32.5,
+    "rr": 1.82,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-HOOD",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "HOOD",
+    "bias": "short",
+    "conviction": 4,
+    "entry": 90.06,
+    "stop": 100.77,
+    "target": 75.0,
+    "rr": 1.41,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-CRL",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "CRL",
+    "bias": "long",
+    "conviction": 8,
+    "entry": 371.8,
+    "stop": 351.54,
+    "target": 412.0,
+    "rr": 1.98,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-NI",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "NI",
+    "bias": "long",
+    "conviction": 3,
+    "entry": 44.21,
+    "stop": 42.72,
+    "target": 46.5,
+    "rr": 1.54,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-SCHW",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "SCHW",
+    "bias": "short",
+    "conviction": 2,
+    "entry": 88.31,
+    "stop": 92.74,
+    "target": 82.0,
+    "rr": 1.42,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-AON",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "AON",
+    "bias": "long",
+    "conviction": 0,
+    "entry": 317.22,
+    "stop": 298.31,
+    "target": 330.0,
+    "rr": 0.68,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-RVTY",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "RVTY",
+    "bias": "long",
+    "conviction": 5,
+    "entry": 166.7,
+    "stop": 155.17,
+    "target": 185.0,
+    "rr": 1.59,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-EXR",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "EXR",
+    "bias": "long",
+    "conviction": 6,
+    "entry": 148.06,
+    "stop": 142.24,
+    "target": 157.6,
+    "rr": 1.64,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-A",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "A",
+    "bias": "long",
+    "conviction": 7,
+    "entry": 181.51,
+    "stop": 171.49,
+    "target": 198.0,
+    "rr": 1.64,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-BAX",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "BAX",
+    "bias": "long",
+    "conviction": 4,
+    "entry": 25.79,
+    "stop": 24.31,
+    "target": 28.0,
+    "rr": 1.5,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-EXC",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "EXC",
+    "bias": "long",
+    "conviction": 5,
+    "entry": 44.72,
+    "stop": 43.2,
+    "target": 47.3,
+    "rr": 1.71,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-CHRW",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "CHRW",
+    "bias": "short",
+    "conviction": 0,
+    "entry": 125.85,
+    "stop": 137.3,
+    "target": 106.0,
+    "rr": 1.73,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-TRMB",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "TRMB",
+    "bias": "long",
+    "conviction": 3,
+    "entry": 63.98,
+    "stop": 59.97,
+    "target": 69.5,
+    "rr": 1.38,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-T",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "T",
+    "bias": "short",
+    "conviction": 5,
+    "entry": 20.65,
+    "stop": 22.11,
+    "target": 18.2,
+    "rr": 1.68,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-BG",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "BG",
+    "bias": "short",
+    "conviction": 2,
+    "entry": 100.18,
+    "stop": 106.11,
+    "target": 92.0,
+    "rr": 1.38,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-DHR",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "DHR",
+    "bias": "long",
+    "conviction": 6,
+    "entry": 235.46,
+    "stop": 222.14,
+    "target": 255.0,
+    "rr": 1.47,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-EQT",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "EQT",
+    "bias": "long",
+    "conviction": 7,
+    "entry": 56.5,
+    "stop": 53.32,
+    "target": 62.0,
+    "rr": 1.73,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-SBUX",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "SBUX",
+    "bias": "long",
+    "conviction": 6,
+    "entry": 104.0,
+    "stop": 99.4,
+    "target": 113.2,
+    "rr": 2.0,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-SWK",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "SWK",
+    "bias": "long",
+    "conviction": 5,
+    "entry": 100.54,
+    "stop": 94.91,
+    "target": 109.0,
+    "rr": 1.5,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-RTX",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "RTX",
+    "bias": "long",
+    "conviction": 4,
+    "entry": 197.28,
+    "stop": 188.0,
+    "target": 206.6,
+    "rr": 1.01,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-MCD",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "MCD",
+    "bias": "long",
+    "conviction": 6,
+    "entry": 251.11,
+    "stop": 242.3,
+    "target": 264.3,
+    "rr": 1.5,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-XYL",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "XYL",
+    "bias": "short",
+    "conviction": 0,
+    "entry": 87.98,
+    "stop": 91.5,
+    "target": 82.0,
+    "rr": 1.7,
+    "horizon": "intraday",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-BXP",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "BXP",
+    "bias": "long",
+    "conviction": 5,
+    "entry": 62.12,
+    "stop": 58.98,
+    "target": 66.8,
+    "rr": 1.49,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-NDAQ",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "NDAQ",
+    "bias": "long",
+    "conviction": 3,
+    "entry": 105.47,
+    "stop": 100.98,
+    "target": 112.2,
+    "rr": 1.5,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-IQV",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "IQV",
+    "bias": "long",
+    "conviction": 7,
+    "entry": 277.6,
+    "stop": 259.56,
+    "target": 304.0,
+    "rr": 1.46,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-DVN",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "DVN",
+    "bias": "long",
+    "conviction": 4,
+    "entry": 51.87,
+    "stop": 49.06,
+    "target": 56.3,
+    "rr": 1.58,
+    "horizon": "swing",
+    "alerted": true,
+    "status": "open",
+    "position": null,
+    "resolved_at": null,
+    "outcome": null,
+    "bars_open": 0
+  },
+  {
+    "id": "2026-10-28T11:20-ARES",
+    "timestamp": "2026-10-28T11:20:16.099715-07:00",
+    "scan": "preclose",
+    "ticker": "ARES",
+    "bias": "long",
+    "conviction": 6,
+    "entry": 123.18,
+    "stop": 114.34,
+    "target": 136.5,
+    "rr": 1.51,
     "horizon": "swing",
     "alerted": true,
     "status": "open",
